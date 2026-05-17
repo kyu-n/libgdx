@@ -452,7 +452,7 @@ public class Sdl3Window implements Disposable {
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_MOVED: {
-			// No positionChanged hook on Sdl3WindowListener — the event is consumed without dispatch.
+			if (windowListener != null) windowListener.positionChanged(eventData1, eventData2);
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_RESIZED:

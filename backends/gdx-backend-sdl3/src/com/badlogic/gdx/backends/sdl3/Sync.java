@@ -94,7 +94,8 @@ class Sync {
 		initialised = true;
 
 		sleepDurations.init(1000 * 1000);
-		yieldDurations.init((int)(-(getTime() - getTime()) * 1.333));
+		// Initial yield frequency: 1ms worth of nanoseconds. Calibrated at runtime as the loop adapts.
+		yieldDurations.init((int)(NANOS_IN_SECOND / 1000));
 
 		nextFrame = getTime();
 

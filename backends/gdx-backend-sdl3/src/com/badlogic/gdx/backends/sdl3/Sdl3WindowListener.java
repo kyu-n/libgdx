@@ -69,4 +69,15 @@ public interface Sdl3WindowListener {
 	 * {@link Sdl3Graphics#requestRendering()} is automatically called. */
 	void refreshRequested ();
 
+	/** Called when the window is moved.
+	 * <p>
+	 * Defaulted to a no-op (rather than abstract like the other interface methods) so existing implementations of
+	 * {@code Sdl3WindowListener} keep compiling. New implementations are encouraged to override it if they care about window
+	 * position changes.
+	 *
+	 * @param x new x position in screen coordinates
+	 * @param y new y position in screen coordinates */
+	default void positionChanged (int x, int y) {
+	}
+
 }

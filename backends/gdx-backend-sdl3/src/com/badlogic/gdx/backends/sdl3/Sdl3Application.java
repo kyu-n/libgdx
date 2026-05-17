@@ -731,7 +731,9 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		}
 		SDL_GL_MakeCurrent(windowHandle, glContext);
 
-		SDL_GL_SetSwapInterval(config.vSyncEnabled ? 1 : 0);
+		if (!SDL_GL_SetSwapInterval(config.vSyncEnabled ? 1 : 0)) {
+			System.err.println("Sdl3Application: SDL_GL_SetSwapInterval failed: " + SDL_GetError());
+		}
 
 		GL.createCapabilities();
 

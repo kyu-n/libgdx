@@ -63,7 +63,7 @@ public class Sdl3WindowConfiguration {
 		windowListener = config.windowListener;
 		fullscreenMode = config.fullscreenMode;
 		title = config.title;
-		initialBackgroundColor = config.initialBackgroundColor;
+		initialBackgroundColor = config.initialBackgroundColor == null ? null : new Color(config.initialBackgroundColor);
 		initialVisible = config.initialVisible;
 		vSyncEnabled = config.vSyncEnabled;
 	}

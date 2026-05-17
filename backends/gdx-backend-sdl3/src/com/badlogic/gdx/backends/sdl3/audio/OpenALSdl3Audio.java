@@ -35,6 +35,8 @@ import org.lwjgl.openal.AL10;
 
 import com.badlogic.gdx.audio.AudioDevice;
 import com.badlogic.gdx.audio.AudioRecorder;
+import com.badlogic.gdx.backends.sdl3.audio.mock.MockAudioDevice;
+import com.badlogic.gdx.backends.sdl3.audio.mock.MockAudioRecorder;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.Array;
@@ -90,6 +92,7 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 		device = alcOpenDevice((ByteBuffer)null);
 		if (device == 0L) {
 			noDevice = true;
+			System.err.println("OpenALSdl3Audio: Failed to open OpenAL device; audio disabled.");
 			return;
 		}
 		ALCCapabilities deviceCapabilities = ALC.createCapabilities(device);
@@ -97,10 +100,12 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 		if (context == 0L) {
 			alcCloseDevice(device);
 			noDevice = true;
+			System.err.println("OpenALSdl3Audio: Failed to create OpenAL context; audio disabled.");
 			return;
 		}
 		if (!alcMakeContextCurrent(context)) {
 			noDevice = true;
+			System.err.println("OpenALSdl3Audio: Failed to make OpenAL context current; audio disabled.");
 			return;
 		}
 		AL.createCapabilities(deviceCapabilities);
@@ -399,54 +404,17 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 	}
 
 	public AudioDevice newAudioDevice (int sampleRate, final boolean isMono) {
-		if (noDevice) return new AudioDevice() {
-			@Override
-			public void writeSamples (float[] samples, int offset, int numSamples) {
-			}
-
-			@Override
-			public void writeSamples (short[] samples, int offset, int numSamples) {
-			}
-
-			@Override
-			public void setVolume (float volume) {
-			}
-
+		if (noDevice) return new MockAudioDevice() {
 			@Override
 			public boolean isMono () {
 				return isMono;
-			}
-
-			@Override
-			public int getLatency () {
-				return 0;
-			}
-
-			@Override
-			public void dispose () {
-			}
-
-			@Override
-			public void pause () {
-			}
-
-			@Override
-			public void resume () {
 			}
 		};
 		return new OpenALAudioDevice(this, sampleRate, isMono, deviceBufferSize, deviceBufferCount);
 	}
 
 	public AudioRecorder newAudioRecorder (int samplingRate, boolean isMono) {
-		if (noDevice) return new AudioRecorder() {
-			@Override
-			public void read (short[] samples, int offset, int numSamples) {
-			}
-
-			@Override
-			public void dispose () {
-			}
-		};
+		if (noDevice) return new MockAudioRecorder();
 		return new JavaSoundAudioRecorder(samplingRate, isMono);
 	}
 

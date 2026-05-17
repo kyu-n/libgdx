@@ -16,6 +16,7 @@
 
 package com.badlogic.gdx.backends.sdl3;
 
+import static org.lwjgl.sdl.SDLError.SDL_GetError;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_ExtensionSupported;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_SetSwapInterval;
 import static org.lwjgl.sdl.SDLVideo.SDL_GetWindowDisplayScale;
@@ -399,9 +400,13 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 			sdlMode.refresh_rate(newMode.refreshRate);
 			// pixel_density / format / refresh_rate_numerator-denominator left at zero — SDL will resolve to the closest
 			// supported mode for this display on its own.
-			SDL_SetWindowFullscreenMode(window.getWindowHandle(), sdlMode);
+			if (!SDL_SetWindowFullscreenMode(window.getWindowHandle(), sdlMode)) {
+				System.err.println("Sdl3Graphics: SDL_SetWindowFullscreenMode failed: " + SDL_GetError());
+			}
 		}
-		SDL_SetWindowFullscreen(window.getWindowHandle(), true);
+		if (!SDL_SetWindowFullscreen(window.getWindowHandle(), true)) {
+			System.err.println("Sdl3Graphics: SDL_SetWindowFullscreen(true) failed: " + SDL_GetError());
+		}
 		updateFramebufferInfo();
 		setVSync(window.getConfig().vSyncEnabled);
 		return true;
@@ -423,7 +428,9 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 			if (displayModeBeforeFullscreen == null) {
 				storeCurrentWindowPositionAndDisplayMode();
 			}
-			SDL_SetWindowFullscreen(window.getWindowHandle(), false);
+			if (!SDL_SetWindowFullscreen(window.getWindowHandle(), false)) {
+				System.err.println("Sdl3Graphics: SDL_SetWindowFullscreen(false) failed: " + SDL_GetError());
+			}
 		}
 		SDL_SetWindowSize(window.getWindowHandle(), width, height);
 		// Re-center if the size changed compared to the last logical size we knew about. On macOS centering must happen _after_
@@ -471,7 +478,9 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 		getWindow().getConfig().vSyncEnabled = vsync;
 		// SDL_GL_SetSwapInterval(1) = vsync on, 0 = off, -1 = adaptive. We only expose the boolean toggle to match the
 		// libGDX Graphics contract. Adaptive vsync is opt-in via the manual SDL hint mechanism on Sdl3ApplicationConfiguration.
-		SDL_GL_SetSwapInterval(vsync ? 1 : 0);
+		if (!SDL_GL_SetSwapInterval(vsync ? 1 : 0)) {
+			System.err.println("Sdl3Graphics: SDL_GL_SetSwapInterval failed: " + SDL_GetError());
+		}
 	}
 
 	/** Sets the target framerate for the application, when using continuous rendering. Must be positive. The cpu sleeps as needed.
