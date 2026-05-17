@@ -567,11 +567,13 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		}
 		org.lwjgl.sdl.SDLMouse.SDL_WarpMouseInWindow(window.getWindowHandle(), x, y);
 		// SDL_WarpMouseInWindow does not generate a SDL_EVENT_MOUSE_MOTION on all platforms; synthesize the libGDX-side state
-		// transition so callers observing getX/getY immediately afterwards see the new position.
-		deltaX = x - mouseX;
-		deltaY = y - mouseY;
+		// transition so callers observing getX/getY immediately afterwards see the new position. Zero the deltas: the next
+		// real motion event should report its delta relative to the warped position, not the pre-warp position (otherwise
+		// FPS-camera recentering produces a huge spurious delta).
 		mouseX = x;
 		mouseY = y;
+		deltaX = 0;
+		deltaY = 0;
 	}
 
 	protected char characterForKeyCode (int key) {
