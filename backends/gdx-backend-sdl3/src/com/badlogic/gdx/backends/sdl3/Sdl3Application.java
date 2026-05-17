@@ -43,7 +43,6 @@ import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_FLAGS;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_MAJOR_VERSION;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_MINOR_VERSION;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_CORE;
-import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_ES;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_MASK;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CreateContext;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_MakeCurrent;
@@ -66,11 +65,9 @@ import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_TRANSPARENT;
 
 import java.io.File;
 import java.io.PrintStream;
-import java.lang.reflect.Method;
 import java.nio.IntBuffer;
 
 import com.badlogic.gdx.ApplicationLogger;
-import com.badlogic.gdx.backends.sdl3.Sdl3ApplicationConfiguration.GLEmulation;
 import com.badlogic.gdx.backends.sdl3.audio.Sdl3Audio;
 import com.badlogic.gdx.backends.sdl3.audio.OpenALSdl3Audio;
 import com.badlogic.gdx.graphics.glutils.GLVersion;
@@ -139,30 +136,6 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		}
 	}
 
-	static void loadANGLE () {
-		try {
-			Class angleLoader = Class.forName("com.badlogic.gdx.backends.sdl3.angle.ANGLELoader");
-			Method load = angleLoader.getMethod("load");
-			load.invoke(angleLoader);
-		} catch (ClassNotFoundException t) {
-			return;
-		} catch (Throwable t) {
-			throw new GdxRuntimeException("Couldn't load ANGLE.", t);
-		}
-	}
-
-	static void postLoadANGLE () {
-		try {
-			Class angleLoader = Class.forName("com.badlogic.gdx.backends.sdl3.angle.ANGLELoader");
-			Method load = angleLoader.getMethod("postGlfwInit");
-			load.invoke(angleLoader);
-		} catch (ClassNotFoundException t) {
-			return;
-		} catch (Throwable t) {
-			throw new GdxRuntimeException("Couldn't load ANGLE.", t);
-		}
-	}
-
 	/** On macOS, the JVM must be launched with {@code -XstartOnFirstThread} or any UI library that calls into Cocoa (SDL3
 	 * included) deadlocks on event-pump entry. Fails fast with platform-specific guidance rather than silently deadlocking or
 	 * auto-relaunching the JVM (which is fragile across launchers, IDE-runs, and native-image binaries). */
@@ -202,7 +175,6 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 
 	public Sdl3Application (ApplicationListener listener, Sdl3ApplicationConfiguration config) {
 		ensureMacosStartOnFirstThread();
-		if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20) loadANGLE();
 		// Opt-in Wayland fallback: if the consumer asked to prefer X11 on Linux and hasn't already set
 		// SDL_HINT_VIDEO_DRIVER explicitly, default it to "x11,wayland". Mindustry/Arc precedent for
 		// compositors where SDL3's default driver pick misbehaves.
@@ -247,7 +219,6 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		this.sync = new Sync();
 
 		Sdl3Window window = createWindow(config, listener, 0);
-		if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20) postLoadANGLE();
 		windows.add(window);
 		try {
 			loop();
@@ -679,10 +650,6 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, config.gles30ContextMajorVersion);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, config.gles30ContextMinorVersion);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		} else if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20) {
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 		}
 
 		if (config.debug) {
@@ -773,32 +740,19 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 
 		SDL_GL_SetSwapInterval(config.vSyncEnabled ? 1 : 0);
 
-		if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20) {
-			try {
-				Class gles = Class.forName("org.lwjgl.opengles.GLES");
-				gles.getMethod("createCapabilities").invoke(gles);
-			} catch (Throwable e) {
-				throw new GdxRuntimeException("Couldn't initialize GLES", e);
-			}
-		} else {
-			GL.createCapabilities();
-		}
+		GL.createCapabilities();
 
-		initiateGL(config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20);
+		initiateGL();
 		if (!glVersion.isVersionEqualToOrHigher(2, 0))
 			throw new GdxRuntimeException("OpenGL 2.0 or higher with the FBO extension is required. OpenGL version: "
 				+ glVersion.getVersionString() + "\n" + glVersion.getDebugVersionString());
 
-		if (config.glEmulation != Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20 && !supportsFBO()) {
+		if (!supportsFBO()) {
 			throw new GdxRuntimeException("OpenGL 2.0 or higher with the FBO extension is required. OpenGL version: "
 				+ glVersion.getVersionString() + ", FBO extension: false\n" + glVersion.getDebugVersionString());
 		}
 
 		if (config.debug) {
-			if (config.glEmulation == GLEmulation.ANGLE_GLES20) {
-				throw new IllegalStateException(
-					"ANGLE currently can't be used with with Sdl3ApplicationConfiguration#enableGLDebugOutput");
-			}
 			glDebugCallback = GLUtil.setupDebugMessageCallback(config.debugStream);
 			setGLDebugMessageControl(GLDebugMessageSeverity.NOTIFICATION, false);
 		}
@@ -806,24 +760,11 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		return new long[] {windowHandle, glContext};
 	}
 
-	private static void initiateGL (boolean useGLES20) {
-		if (!useGLES20) {
-			String versionString = GL11.glGetString(GL11.GL_VERSION);
-			String vendorString = GL11.glGetString(GL11.GL_VENDOR);
-			String rendererString = GL11.glGetString(GL11.GL_RENDERER);
-			glVersion = new GLVersion(Application.ApplicationType.Desktop, versionString, vendorString, rendererString);
-		} else {
-			try {
-				Class gles = Class.forName("org.lwjgl.opengles.GLES20");
-				Method getString = gles.getMethod("glGetString", int.class);
-				String versionString = (String)getString.invoke(gles, GL11.GL_VERSION);
-				String vendorString = (String)getString.invoke(gles, GL11.GL_VENDOR);
-				String rendererString = (String)getString.invoke(gles, GL11.GL_RENDERER);
-				glVersion = new GLVersion(Application.ApplicationType.Desktop, versionString, vendorString, rendererString);
-			} catch (Throwable e) {
-				throw new GdxRuntimeException("Couldn't get GLES version string.", e);
-			}
-		}
+	private static void initiateGL () {
+		String versionString = GL11.glGetString(GL11.GL_VERSION);
+		String vendorString = GL11.glGetString(GL11.GL_VENDOR);
+		String rendererString = GL11.glGetString(GL11.GL_RENDERER);
+		glVersion = new GLVersion(Application.ApplicationType.Desktop, versionString, vendorString, rendererString);
 	}
 
 	private static boolean supportsFBO () {

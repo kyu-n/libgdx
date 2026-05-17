@@ -34,7 +34,6 @@ import java.nio.IntBuffer;
 import com.badlogic.gdx.AbstractGraphics;
 import com.badlogic.gdx.Application;
 
-import com.badlogic.gdx.utils.GdxRuntimeException;
 import org.lwjgl.BufferUtils;
 
 import com.badlogic.gdx.graphics.Cursor;
@@ -90,12 +89,7 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 		} else if (window.getConfig().glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL30) {
 			this.gl20 = this.gl30 = new Sdl3GL30();
 		} else {
-			try {
-				this.gl20 = window.getConfig().glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL20 ? new Sdl3GL20()
-					: (GL20)Class.forName("com.badlogic.gdx.backends.sdl3.angle.Sdl3GLES20").newInstance();
-			} catch (Throwable t) {
-				throw new GdxRuntimeException("Couldn't instantiate GLES20.", t);
-			}
+			this.gl20 = new Sdl3GL20();
 			this.gl30 = null;
 		}
 		updateFramebufferInfo();

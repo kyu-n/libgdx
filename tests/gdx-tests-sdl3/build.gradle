@@ -42,7 +42,6 @@ tasks.named('run', JavaExec) {
 dependencies {
 	implementation project(":tests:gdx-tests")
 	implementation project(":backends:gdx-backend-sdl3")
-	implementation project(":extensions:gdx-lwjgl3-angle")
 	implementation testnatives.desktop
 }
 

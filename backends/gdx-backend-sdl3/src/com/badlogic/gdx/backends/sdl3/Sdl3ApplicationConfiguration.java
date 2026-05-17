@@ -82,7 +82,10 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 	int audioDeviceBufferCount = 9;
 
 	public enum GLEmulation {
-		ANGLE_GLES20, GL20, GL30, GL31, GL32
+		GL20, GL30, GL31, GL32
+		// ANGLE_GLES20 removed in cleanup: SDL3-side adapter classes
+		// (Sdl3GLES20, ANGLELoader) were never written. Tracked as
+		// follow-up to re-add ANGLE in a separate plan.
 	}
 
 	GLEmulation glEmulation = GLEmulation.GL20;
@@ -259,7 +262,7 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 		}
 	}
 
-	/** Set transparent window hint. Results may vary on different OS and GPUs. Usage with the ANGLE backend is less consistent.
+	/** Set transparent window hint. Results may vary on different OS and GPUs.
 	 * @param transparentFramebuffer */
 	public void setTransparentFramebuffer (boolean transparentFramebuffer) {
 		this.transparentFramebuffer = transparentFramebuffer;
