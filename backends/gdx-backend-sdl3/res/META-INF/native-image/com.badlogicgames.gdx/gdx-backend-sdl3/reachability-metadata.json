@@ -1,0 +1,281 @@
+{
+  "reflection": [
+    {
+      "type": "com.badlogic.gdx.backends.sdl3.audio.OpenALMusic[]"
+    },
+    {
+      "type": "edu.umd.cs.findbugs.annotations.Nullable"
+    },
+    {
+      "type": "javax.annotation.Nullable"
+    },
+    {
+      "type": "org.checkerframework.checker.nullness.qual.Nullable"
+    },
+    {
+      "type": "org.eclipse.jdt.annotation.Nullable"
+    },
+    {
+      "type": "org.jetbrains.annotations.Nullable"
+    },
+    {
+      "type": "org.jspecify.annotations.Nullable"
+    },
+    {
+      "type": "org.lwjgl.system.JNI$JNIBindings"
+    },
+    {
+      "type": "org.lwjgl.system.JNIBindingsImpl",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.lwjgl.system.jemalloc.JEmallocAllocator",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "glob": "META-INF/linux/x64/org/lwjgl/jemalloc/libjemalloc.so.sha1"
+    },
+    {
+      "glob": "META-INF/linux/x64/org/lwjgl/liblwjgl.so.sha1"
+    },
+    {
+      "glob": "META-INF/linux/x64/org/lwjgl/openal/libopenal.so.sha1"
+    },
+    {
+      "glob": "META-INF/linux/x64/org/lwjgl/opengl/liblwjgl_opengl.so.sha1"
+    },
+    {
+      "glob": "META-INF/linux/x64/org/lwjgl/sdl/libSDL3.so.sha1"
+    },
+    {
+      "glob": "META-INF/linux/x64/org/lwjgl/stb/liblwjgl_stb.so.sha1"
+    },
+    {
+      "glob": "libEGL.so.1"
+    },
+    {
+      "glob": "libgdx64.so"
+    },
+    {
+      "glob": "linux/x64/org/lwjgl/jemalloc/libjemalloc.so"
+    },
+    {
+      "glob": "linux/x64/org/lwjgl/liblwjgl.so"
+    },
+    {
+      "glob": "linux/x64/org/lwjgl/openal/libopenal.so"
+    },
+    {
+      "glob": "linux/x64/org/lwjgl/opengl/liblwjgl_opengl.so"
+    },
+    {
+      "glob": "linux/x64/org/lwjgl/sdl/libSDL3.so"
+    },
+    {
+      "glob": "linux/x64/org/lwjgl/stb/liblwjgl_stb.so"
+    }
+  ],
+  "foreign": {
+    "downcalls": [
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jint"
+        ]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jlong",
+          "jint",
+          "jint",
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "jboolean",
+        "parameterTypes": [
+          "jint",
+          "jint"
+        ]
+      },
+      {
+        "returnType": "jboolean",
+        "parameterTypes": [
+          "jint",
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "jint",
+        "parameterTypes": [
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "jboolean",
+        "parameterTypes": [
+          "jlong",
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jint",
+          "jint",
+          "jint"
+        ]
+      },
+      {
+        "returnType": "jfloat",
+        "parameterTypes": [
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": []
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jint",
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jint",
+          "jint",
+          "jfloat",
+          "jfloat",
+          "jfloat"
+        ]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "jlong",
+        "parameterTypes": [
+          "jlong",
+          "jint"
+        ]
+      },
+      {
+        "returnType": "jlong",
+        "parameterTypes": [
+          "jlong",
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jint",
+          "jint",
+          "jfloat"
+        ]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jint",
+          "jint",
+          "jlong",
+          "jint",
+          "jint"
+        ]
+      },
+      {
+        "returnType": "jboolean",
+        "parameterTypes": [
+          "jlong",
+          "jint",
+          "jint"
+        ]
+      },
+      {
+        "returnType": "jlong",
+        "parameterTypes": []
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": [
+          "jint",
+          "jint",
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "jlong",
+        "parameterTypes": [
+          "jint",
+          "jint"
+        ]
+      },
+      {
+        "returnType": "jlong",
+        "parameterTypes": [
+          "jlong",
+          "jint",
+          "jint",
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "jlong",
+        "parameterTypes": [
+          "jint"
+        ]
+      },
+      {
+        "returnType": "jlong",
+        "parameterTypes": [
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "jboolean",
+        "parameterTypes": [
+          "jlong"
+        ]
+      },
+      {
+        "returnType": "jint",
+        "parameterTypes": []
+      },
+      {
+        "returnType": "jboolean",
+        "parameterTypes": [
+          "jint"
+        ]
+      },
+      {
+        "returnType": "jboolean",
+        "parameterTypes": [
+          "jlong",
+          "jlong",
+          "jlong"
+        ]
+      }
+    ]
+  }
+}
