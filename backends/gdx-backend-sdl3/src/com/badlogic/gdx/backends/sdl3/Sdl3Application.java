@@ -42,6 +42,7 @@ import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_DEBUG_FLAG;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_FLAGS;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_MAJOR_VERSION;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_MINOR_VERSION;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_CORE;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_MASK;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CreateContext;
@@ -655,21 +656,11 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		// Apply back-buffer attributes (RGBA / depth / stencil / MSAA) before context creation.
 		config.applyBackBufferAttributes();
 
-		// Context profile / version selection.
-		if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL30
-			|| config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL31
-			|| config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL32) {
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, config.gles30ContextMajorVersion);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, config.gles30ContextMinorVersion);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		}
+		// Context profile / version selection happens inside createGLContextWithFallback so each ladder attempt sets its
+		// own major/minor/profile triple. Debug flag is applied per-attempt as well.
 
-		if (config.debug) {
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
-		}
-
-		// Ensure SDL_GL_SHARE_WITH_CURRENT_CONTEXT defaults to 0 unless we're about to create a shared context below. We set
-		// it back to 1 right before SDL_GL_CreateContext in the shared-window path so the try/finally reset stays tight.
+		// Ensure SDL_GL_SHARE_WITH_CURRENT_CONTEXT defaults to 0 unless we're about to create a shared context below. The
+		// fallback ladder will re-set it based on sharedContextWindow != 0 and reset it again in its finally block.
 		SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
 
 		// Apply manual GL attribute overrides last so the user can override defaults if needed.
@@ -731,20 +722,10 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		}
 
 		// Shared context (secondary windows): the primary window's GL context must be current right now (the loop
-		// guarantees this because newWindow() postRunnables createWindow into the main thread). Pair the set with a
-		// finally-block reset so an exception inside SDL_GL_CreateContext can't leave the attribute leaked at 1 for the
-		// next createSdlWindow() call.
-		long glContext;
-		if (sharedContextWindow != 0) {
-			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
-			try {
-				glContext = SDL_GL_CreateContext(windowHandle);
-			} finally {
-				SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
-			}
-		} else {
-			glContext = SDL_GL_CreateContext(windowHandle);
-		}
+		// guarantees this because newWindow() postRunnables createWindow into the main thread). The fallback ladder
+		// brackets the SHARE attribute set with a try/finally so an exception inside SDL_GL_CreateContext can't leave
+		// the attribute leaked at 1 for the next createSdlWindow() call.
+		long glContext = createGLContextWithFallback(windowHandle, config, sharedContextWindow);
 		if (glContext == 0) {
 			throw new GdxRuntimeException("Couldn't create OpenGL context: " + SDL_GetError());
 		}
@@ -770,6 +751,58 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		}
 
 		return new long[] {windowHandle, glContext};
+	}
+
+	/** Attempt context creation with a ladder of (major, minor, profile) triples, returning the first successful
+	 * context handle, or 0 if all attempts fail. Preserves the shared-context attribute across retries when
+	 * {@code sharedContextWindow != 0}. */
+	private static long createGLContextWithFallback (long windowHandle, Sdl3ApplicationConfiguration config,
+		long sharedContextWindow) {
+		int[][] ladder = chooseLadder(config);
+		SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, sharedContextWindow != 0 ? 1 : 0);
+		try {
+			for (int[] attempt : ladder) {
+				applyProfileAttributes(config, attempt[0], attempt[1], attempt[2]);
+				long ctx = SDL_GL_CreateContext(windowHandle);
+				if (ctx != 0) return ctx;
+				System.err.println("Sdl3Application: GL " + attempt[0] + "." + attempt[1] + " context creation failed: "
+					+ SDL_GetError());
+			}
+			return 0;
+		} finally {
+			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
+		}
+	}
+
+	private static int[][] chooseLadder (Sdl3ApplicationConfiguration config) {
+		// Trailing triples are progressively more permissive. Each row is {major, minor, profileMask}.
+		if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL30
+			|| config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL31
+			|| config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL32) {
+			return new int[][] { //
+				{config.gles30ContextMajorVersion, config.gles30ContextMinorVersion, SDL_GL_CONTEXT_PROFILE_CORE}, //
+				{3, 2, SDL_GL_CONTEXT_PROFILE_CORE}, //
+				{3, 0, SDL_GL_CONTEXT_PROFILE_CORE}, //
+				{2, 1, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY}};
+		}
+		// GL20 (or anything else): try 2.1 then 2.0 in compatibility profile.
+		return new int[][] { //
+			{2, 1, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY}, //
+			{2, 0, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY}};
+	}
+
+	private static void applyProfileAttributes (Sdl3ApplicationConfiguration config, int major, int minor, int profile) {
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, minor);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, profile);
+		if (config.debug) {
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+		}
+		// Re-apply user-set GL hint overrides AFTER the ladder's defaults so user-pinned
+		// MAJOR/MINOR/PROFILE_MASK/CONTEXT_FLAGS take precedence on every retry. Non-version
+		// hints (back-buffer bits etc.) are also re-applied here — harmless since their initial
+		// application before SDL_CreateWindow already took effect on the framebuffer config.
+		config.executeWindowHintOverrides();
 	}
 
 	private static void initiateGL () {
