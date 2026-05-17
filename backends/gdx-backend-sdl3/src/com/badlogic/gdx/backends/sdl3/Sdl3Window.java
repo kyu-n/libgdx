@@ -504,6 +504,10 @@ public class Sdl3Window implements Disposable {
 		graphics.dispose();
 		input.dispose();
 		if (glContext != 0) {
+			// SDL3 leaves the behavior of SDL_GL_DestroyContext undefined when
+			// the context is still current on this thread. Some Intel/Mesa
+			// drivers crash. Un-bind explicitly before destroy.
+			SDL_GL_MakeCurrent(0L, 0L);
 			SDL_GL_DestroyContext(glContext);
 			glContext = 0;
 		}
