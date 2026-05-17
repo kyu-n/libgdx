@@ -68,33 +68,42 @@ public class Sdl3Net implements Net {
 		return new NetJavaSocketImpl(protocol, host, port, hints);
 	}
 
+	enum OpenStrategy { OPEN, XDG_OPEN, DESKTOP_BROWSE, NONE }
+
+	static OpenStrategy chooseStrategy (String osName, boolean desktopSupported) {
+		String lower = osName == null ? "" : osName.toLowerCase(java.util.Locale.ROOT);
+		boolean isMac = lower.contains("mac") || lower.contains("darwin");
+		boolean isLinux = lower.contains("linux");
+		if (isMac) return OpenStrategy.OPEN;
+		// Linux must come BEFORE Desktop.browse(): Desktop.browse() hangs on
+		// many GTK/Wayland setups; xdg-open is the desktop-portal-aware path.
+		if (isLinux) return OpenStrategy.XDG_OPEN;
+		if (desktopSupported) return OpenStrategy.DESKTOP_BROWSE;
+		return OpenStrategy.NONE;
+	}
+
 	@Override
 	public boolean openURI (String uri) {
-		String osName = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
-		boolean isMac = osName.contains("mac") || osName.contains("darwin");
-		boolean isLinux = osName.contains("linux");
-		if (isMac) {
-			try {
-				(new ProcessBuilder("open", (new URI(uri).toString()))).start();
+		boolean desktopSupported = Desktop.isDesktopSupported()
+			&& Desktop.getDesktop().isSupported(Desktop.Action.BROWSE);
+		OpenStrategy strategy = chooseStrategy(System.getProperty("os.name", ""), desktopSupported);
+		try {
+			switch (strategy) {
+			case OPEN:
+				new ProcessBuilder("open", new URI(uri).toString()).start();
 				return true;
-			} catch (Throwable t) {
-				return false;
-			}
-		} else if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-			try {
+			case XDG_OPEN:
+				new ProcessBuilder("xdg-open", new URI(uri).toString()).start();
+				return true;
+			case DESKTOP_BROWSE:
 				Desktop.getDesktop().browse(new URI(uri));
 				return true;
-			} catch (Throwable t) {
+			case NONE:
+			default:
 				return false;
 			}
-		} else if (isLinux) {
-			try {
-				(new ProcessBuilder("xdg-open", (new URI(uri).toString()))).start();
-				return true;
-			} catch (Throwable t) {
-				return false;
-			}
+		} catch (Throwable t) {
+			return false;
 		}
-		return false;
 	}
 }
