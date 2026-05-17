@@ -47,4 +47,35 @@ public class Sdl3ApplicationConfigurationTest {
 		assertEquals(src.idleFPS, dst.idleFPS);
 		assertEquals(src.disableAudio, dst.disableAudio);
 	}
+
+	@Test
+	public void setRGBABits_updatesBackBufferConfig () {
+		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();
+		c.setRGBABits(8, 8, 8, 8);
+		assertEquals(8, c.r);
+		assertEquals(8, c.g);
+		assertEquals(8, c.b);
+		assertEquals(8, c.a);
+	}
+
+	@Test
+	public void setDepthBits_updates () {
+		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();
+		c.setDepthBits(24);
+		assertEquals(24, c.depth);
+	}
+
+	@Test
+	public void setStencilBits_updates () {
+		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();
+		c.setStencilBits(8);
+		assertEquals(8, c.stencil);
+	}
+
+	@Test
+	public void setSamples_updates () {
+		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();
+		c.setSamples(4);
+		assertEquals(4, c.samples);
+	}
 }
