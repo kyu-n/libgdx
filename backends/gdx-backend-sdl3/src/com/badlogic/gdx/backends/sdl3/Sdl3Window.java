@@ -79,6 +79,7 @@ public class Sdl3Window implements Disposable {
 	boolean asyncResized = false;
 	private boolean requestRendering = false;
 	private boolean shouldClose = false;
+	private final PauseGate pauseGate = new PauseGate(this::firePause, this::fireResume);
 
 	/** Buffer of file paths accumulated between {@code SDL_EVENT_DROP_BEGIN} and {@code SDL_EVENT_DROP_COMPLETE}. SDL3 emits one
 	 * event per file inside a BEGIN/COMPLETE bracket; we batch into this list and flush on COMPLETE so
@@ -418,51 +419,27 @@ public class Sdl3Window implements Disposable {
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_FOCUS_GAINED: {
-			if (config.pauseWhenLostFocus) {
-				synchronized (lifecycleListeners) {
-					for (LifecycleListener l : lifecycleListeners)
-						l.resume();
-				}
-				listener.resume();
-			}
+			if (config.pauseWhenLostFocus) pauseGate.requestResume();
 			if (windowListener != null) windowListener.focusGained();
 			focused = true;
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_FOCUS_LOST: {
 			if (windowListener != null) windowListener.focusLost();
-			if (config.pauseWhenLostFocus) {
-				synchronized (lifecycleListeners) {
-					for (LifecycleListener l : lifecycleListeners)
-						l.pause();
-				}
-				listener.pause();
-			}
+			if (config.pauseWhenLostFocus) pauseGate.requestPause();
 			focused = false;
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_MINIMIZED: {
 			if (windowListener != null) windowListener.iconified(true);
 			iconified = true;
-			if (config.pauseWhenMinimized) {
-				synchronized (lifecycleListeners) {
-					for (LifecycleListener l : lifecycleListeners)
-						l.pause();
-				}
-				listener.pause();
-			}
+			if (config.pauseWhenMinimized) pauseGate.requestPause();
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_RESTORED: {
 			if (windowListener != null) windowListener.iconified(false);
 			iconified = false;
-			if (config.pauseWhenMinimized) {
-				synchronized (lifecycleListeners) {
-					for (LifecycleListener l : lifecycleListeners)
-						l.resume();
-				}
-				listener.resume();
-			}
+			if (config.pauseWhenMinimized) pauseGate.requestResume();
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_MAXIMIZED: {
@@ -553,5 +530,48 @@ public class Sdl3Window implements Disposable {
 
 	public void flash () {
 		SDL_FlashWindow(windowHandle, SDL_FLASH_UNTIL_FOCUSED);
+	}
+
+	private void firePause () {
+		synchronized (lifecycleListeners) {
+			for (LifecycleListener l : lifecycleListeners)
+				l.pause();
+		}
+		listener.pause();
+	}
+
+	private void fireResume () {
+		synchronized (lifecycleListeners) {
+			for (LifecycleListener l : lifecycleListeners)
+				l.resume();
+		}
+		listener.resume();
+	}
+
+	/** Idempotent pause/resume dispatcher. Multiple pause requests fire the listener once; same for resume.
+	 * Deduplicates FOCUS_LOST+MINIMIZED pairs that arrive together on Windows. Not thread-safe — call only
+	 * from the SDL event-pump thread. */
+	static final class PauseGate {
+		private boolean paused;
+		private final Runnable onPause, onResume;
+
+		PauseGate (Runnable onPause, Runnable onResume) {
+			this.onPause = onPause;
+			this.onResume = onResume;
+		}
+
+		void requestPause () {
+			if (!paused) {
+				paused = true;
+				onPause.run();
+			}
+		}
+
+		void requestResume () {
+			if (paused) {
+				paused = false;
+				onResume.run();
+			}
+		}
 	}
 }
