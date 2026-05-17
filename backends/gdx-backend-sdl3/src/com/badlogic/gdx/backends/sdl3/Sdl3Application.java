@@ -53,9 +53,11 @@ import static org.lwjgl.sdl.SDLVideo.SDL_GL_SetAttribute;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_SetSwapInterval;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_SwapWindow;
 import static org.lwjgl.sdl.SDLVideo.SDL_MaximizeWindow;
+import static org.lwjgl.sdl.SDLVideo.SDL_SetWindowFullscreenMode;
 import static org.lwjgl.sdl.SDLVideo.SDL_SetWindowPosition;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOWPOS_CENTERED;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_BORDERLESS;
+import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_FULLSCREEN;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_HIDDEN;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_MAXIMIZED;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_OPENGL;
@@ -82,6 +84,7 @@ import org.lwjgl.opengl.GL43;
 import org.lwjgl.opengl.GLCapabilities;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.opengl.KHRDebug;
+import org.lwjgl.sdl.SDL_DisplayMode;
 import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.system.Callback;
 import org.lwjgl.system.MemoryStack;
@@ -700,6 +703,7 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		if (config.windowMaximized) flags |= SDL_WINDOW_MAXIMIZED;
 		if (!config.windowDecorated) flags |= SDL_WINDOW_BORDERLESS;
 		if (config.transparentFramebuffer) flags |= SDL_WINDOW_TRANSPARENT;
+		if (config.fullscreenMode != null) flags |= SDL_WINDOW_FULLSCREEN;
 
 		int w, h;
 		if (config.fullscreenMode != null) {
@@ -713,6 +717,20 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		long windowHandle = SDL_CreateWindow(config.title != null ? config.title : "", w, h, flags);
 		if (windowHandle == 0) {
 			throw new GdxRuntimeException("Couldn't create window: " + SDL_GetError());
+		}
+
+		if (config.fullscreenMode != null) {
+			Sdl3Graphics.Sdl3DisplayMode mode = config.fullscreenMode;
+			try (MemoryStack stack = MemoryStack.stackPush()) {
+				SDL_DisplayMode sdlMode = SDL_DisplayMode.malloc(stack);
+				sdlMode.displayID((int)mode.monitorHandle);
+				sdlMode.w(mode.width);
+				sdlMode.h(mode.height);
+				sdlMode.refresh_rate(mode.refreshRate);
+				if (!SDL_SetWindowFullscreenMode(windowHandle, sdlMode)) {
+					System.err.println("Sdl3Application: SDL_SetWindowFullscreenMode failed: " + SDL_GetError());
+				}
+			}
 		}
 
 		Sdl3Window.setSizeLimits(windowHandle, config.windowMinWidth, config.windowMinHeight, config.windowMaxWidth,
