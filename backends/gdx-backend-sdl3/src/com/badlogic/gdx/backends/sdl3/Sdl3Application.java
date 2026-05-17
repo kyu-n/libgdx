@@ -38,6 +38,7 @@ import static org.lwjgl.sdl.SDLInit.SDL_Init;
 import static org.lwjgl.sdl.SDLInit.SDL_Quit;
 import static org.lwjgl.sdl.SDLInit.SDL_SetAppMetadata;
 import static org.lwjgl.sdl.SDLVideo.SDL_CreateWindow;
+import static org.lwjgl.sdl.SDLVideo.SDL_DestroyWindow;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_DEBUG_FLAG;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_FLAGS;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_MAJOR_VERSION;
@@ -219,9 +220,9 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 
 		this.sync = new Sync();
 
-		Sdl3Window window = createWindow(config, listener, 0);
-		windows.add(window);
 		try {
+			Sdl3Window window = createWindow(config, listener, 0);
+			windows.add(window);
 			loop();
 			cleanupWindows();
 		} catch (Throwable t) {
@@ -689,45 +690,56 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 			throw new GdxRuntimeException("Couldn't create window: " + SDL_GetError());
 		}
 
-		if (config.fullscreenMode != null) {
-			Sdl3Graphics.Sdl3DisplayMode mode = config.fullscreenMode;
-			try (MemoryStack stack = MemoryStack.stackPush()) {
-				SDL_DisplayMode sdlMode = SDL_DisplayMode.malloc(stack);
-				sdlMode.displayID((int)mode.monitorHandle);
-				sdlMode.w(mode.width);
-				sdlMode.h(mode.height);
-				sdlMode.refresh_rate(mode.refreshRate);
-				if (!SDL_SetWindowFullscreenMode(windowHandle, sdlMode)) {
-					System.err.println("Sdl3Application: SDL_SetWindowFullscreenMode failed: " + SDL_GetError());
+		// Anything between SDL_CreateWindow and a successful GL context owns the window handle. If we throw before
+		// glContext is established (fullscreen mode set, position/icon setup, or the GL fallback ladder exhausting),
+		// destroy the window so the SDL_Window doesn't leak past the caller — once we return the handle, ownership
+		// transfers to Sdl3Window.dispose().
+		long glContext;
+		boolean glContextCreated = false;
+		try {
+			if (config.fullscreenMode != null) {
+				Sdl3Graphics.Sdl3DisplayMode mode = config.fullscreenMode;
+				try (MemoryStack stack = MemoryStack.stackPush()) {
+					SDL_DisplayMode sdlMode = SDL_DisplayMode.malloc(stack);
+					sdlMode.displayID((int)mode.monitorHandle);
+					sdlMode.w(mode.width);
+					sdlMode.h(mode.height);
+					sdlMode.refresh_rate(mode.refreshRate);
+					if (!SDL_SetWindowFullscreenMode(windowHandle, sdlMode)) {
+						System.err.println("Sdl3Application: SDL_SetWindowFullscreenMode failed: " + SDL_GetError());
+					}
 				}
 			}
-		}
 
-		Sdl3Window.setSizeLimits(windowHandle, config.windowMinWidth, config.windowMinHeight, config.windowMaxWidth,
-			config.windowMaxHeight);
+			Sdl3Window.setSizeLimits(windowHandle, config.windowMinWidth, config.windowMinHeight, config.windowMaxWidth,
+				config.windowMaxHeight);
 
-		if (config.fullscreenMode == null) {
-			if (config.windowX == -1 && config.windowY == -1) {
-				SDL_SetWindowPosition(windowHandle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-			} else {
-				SDL_SetWindowPosition(windowHandle, config.windowX, config.windowY);
+			if (config.fullscreenMode == null) {
+				if (config.windowX == -1 && config.windowY == -1) {
+					SDL_SetWindowPosition(windowHandle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+				} else {
+					SDL_SetWindowPosition(windowHandle, config.windowX, config.windowY);
+				}
+				if (config.windowMaximized) {
+					SDL_MaximizeWindow(windowHandle);
+				}
 			}
-			if (config.windowMaximized) {
-				SDL_MaximizeWindow(windowHandle);
+
+			if (config.windowIconPaths != null) {
+				Sdl3Window.setIcon(windowHandle, config.windowIconPaths, config.windowIconFileType);
 			}
-		}
 
-		if (config.windowIconPaths != null) {
-			Sdl3Window.setIcon(windowHandle, config.windowIconPaths, config.windowIconFileType);
-		}
-
-		// Shared context (secondary windows): the primary window's GL context must be current right now (the loop
-		// guarantees this because newWindow() postRunnables createWindow into the main thread). The fallback ladder
-		// brackets the SHARE attribute set with a try/finally so an exception inside SDL_GL_CreateContext can't leave
-		// the attribute leaked at 1 for the next createSdlWindow() call.
-		long glContext = createGLContextWithFallback(windowHandle, config, sharedContextWindow);
-		if (glContext == 0) {
-			throw new GdxRuntimeException("Couldn't create OpenGL context: " + SDL_GetError());
+			// Shared context (secondary windows): the primary window's GL context must be current right now (the loop
+			// guarantees this because newWindow() postRunnables createWindow into the main thread). The fallback ladder
+			// brackets the SHARE attribute set with a try/finally so an exception inside SDL_GL_CreateContext can't leave
+			// the attribute leaked at 1 for the next createSdlWindow() call.
+			glContext = createGLContextWithFallback(windowHandle, config, sharedContextWindow);
+			if (glContext == 0) {
+				throw new GdxRuntimeException("Couldn't create OpenGL context: " + SDL_GetError());
+			}
+			glContextCreated = true;
+		} finally {
+			if (!glContextCreated) SDL_DestroyWindow(windowHandle);
 		}
 		SDL_GL_MakeCurrent(windowHandle, glContext);
 
