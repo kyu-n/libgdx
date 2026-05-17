@@ -19,8 +19,11 @@ package com.badlogic.gdx.backends.sdl3;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -173,14 +176,32 @@ public class Sdl3Preferences implements Preferences {
 
 	@Override
 	public void flush () {
+		FileHandle tmp = file.sibling(file.name() + ".tmp");
 		OutputStream out = null;
 		try {
-			out = new BufferedOutputStream(file.write(false));
+			out = new BufferedOutputStream(tmp.write(false));
 			properties.storeToXML(out, null);
+			out.close();
+			out = null;
 		} catch (Exception ex) {
 			throw new GdxRuntimeException("Error writing preferences: " + file, ex);
 		} finally {
 			StreamUtils.closeQuietly(out);
+		}
+		try {
+			Files.move(tmp.file().toPath(), file.file().toPath(),
+				StandardCopyOption.ATOMIC_MOVE,
+				StandardCopyOption.REPLACE_EXISTING);
+		} catch (IOException atomicFailure) {
+			// Fall back to non-atomic replace if the filesystem doesn't support ATOMIC_MOVE
+			// (e.g. some network filesystems).
+			try {
+				Files.move(tmp.file().toPath(), file.file().toPath(),
+					StandardCopyOption.REPLACE_EXISTING);
+			} catch (IOException e2) {
+				e2.addSuppressed(atomicFailure);
+				throw new GdxRuntimeException("Error writing preferences: " + file, e2);
+			}
 		}
 	}
 
