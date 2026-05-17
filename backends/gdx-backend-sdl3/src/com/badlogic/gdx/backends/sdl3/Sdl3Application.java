@@ -282,12 +282,14 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 					// Lifecycle listener methods have to be called before ApplicationListener methods. The
 					// application will be disposed when _all_ windows have been disposed, which is the case,
 					// when there is only 1 window left, which is in the process of being disposed.
-					for (int i = lifecycleListeners.size - 1; i >= 0; i--) {
-						LifecycleListener l = lifecycleListeners.get(i);
-						l.pause();
-						l.dispose();
+					synchronized (lifecycleListeners) {
+						for (int i = lifecycleListeners.size - 1; i >= 0; i--) {
+							LifecycleListener l = lifecycleListeners.get(i);
+							l.pause();
+							l.dispose();
+						}
+						lifecycleListeners.clear();
 					}
-					lifecycleListeners.clear();
 				}
 				closedWindow.dispose();
 
