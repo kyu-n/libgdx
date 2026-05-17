@@ -267,6 +267,7 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 
 	/** Sets the polling rate during idle time in non-continuous rendering mode. Must be positive. Default is 60. */
 	public void setIdleFPS (int fps) {
+		if (fps <= 0) throw new IllegalArgumentException("idleFPS must be positive, got " + fps);
 		this.idleFPS = fps;
 	}
 
