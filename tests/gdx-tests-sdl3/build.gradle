@@ -17,7 +17,7 @@
 apply plugin: 'application'
 
 ext {
-	mainTestClass = "com.badlogic.gdx.tests.sdl3.Sdl3SmokeTest"
+	mainTestClass = "com.badlogic.gdx.tests.sdl3.Sdl3TestStarter"
 }
 sourceSets.main.resources.srcDirs = ["../gdx-tests-android/assets"]
 
@@ -30,7 +30,7 @@ sourceCompatibility = versions.javaLwjgl3
 targetCompatibility = versions.javaLwjgl3
 
 application {
-	mainClass = "com.badlogic.gdx.tests.sdl3.Sdl3SmokeTest"
+	mainClass = "com.badlogic.gdx.tests.sdl3.Sdl3TestStarter"
 }
 
 // `gradle :tests:gdx-tests-sdl3:run` should resolve relative asset paths against the
