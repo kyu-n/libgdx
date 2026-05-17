@@ -65,6 +65,7 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 	private int mostRecetSound = -1;
 	private String preferredOutputDevice = null;
 	private Thread observerThread;
+	private volatile boolean disposed;
 
 	Array<OpenALMusic> music = new Array<>(false, 1, OpenALMusic[]::new);
 	long device;
@@ -133,6 +134,15 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 			@Override
 			public void run () {
 				while (true) {
+					// Sleep at the head of every iteration. Previously the sleep was only on the success path; when
+					// alcGetInteger reported disconnected and switchOutputDevice(null,false) couldn't recover, the loop
+					// continue'd without sleeping → 100% CPU spin on systems with no audio device.
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException ignored) {
+						return;
+					}
+					if (disposed) return;
 					boolean isConnected = alcGetInteger(device, ALC_CONNECTED) != 0;
 					if (!isConnected) {
 						// The device is at a state where it can't recover
@@ -161,11 +171,6 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 						}
 						// Update last available devices
 						lastAvailableDevices = currentDevices;
-					}
-					try {
-						Thread.sleep(1000);
-					} catch (InterruptedException ignored) {
-						return;
 					}
 				}
 			}
@@ -369,7 +374,16 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 	@Override
 	public void dispose () {
 		if (noDevice) return;
-		observerThread.interrupt();
+		disposed = true;
+		if (observerThread != null) {
+			observerThread.interrupt();
+			try {
+				observerThread.join(2000);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			observerThread = null;
+		}
 		for (int i = 0, n = allSources.size; i < n; i++) {
 			int sourceID = allSources.get(i);
 			int state = alGetSourcei(sourceID, AL_SOURCE_STATE);
