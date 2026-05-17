@@ -33,4 +33,18 @@ public class Sdl3ApplicationConfigurationTest {
 		c.setIdleFPS(1);
 		assertEquals(1, c.idleFPS);
 	}
+
+	/** Sanity check on {@link Sdl3ApplicationConfiguration#copy} — the live config that
+	 * Sdl3Application captures in its constructor must keep the same {@code idleFPS} and
+	 * {@code disableAudio} values as the user-supplied one. (The actual NPE fix in
+	 * cleanup() cannot be exercised here — it only triggers on partial SDL_Init failure
+	 * during construction. This test only validates the copy semantics cleanup relies on.) */
+	@Test
+	public void copy_preservesIdleFpsAndDisableAudio () {
+		Sdl3ApplicationConfiguration src = new Sdl3ApplicationConfiguration();
+		src.setIdleFPS(30);
+		Sdl3ApplicationConfiguration dst = Sdl3ApplicationConfiguration.copy(src);
+		assertEquals(src.idleFPS, dst.idleFPS);
+		assertEquals(src.disableAudio, dst.disableAudio);
+	}
 }

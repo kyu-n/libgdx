@@ -434,8 +434,8 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 	}
 
 	protected void cleanup () {
-		Sdl3Cursor.disposeSystemCursors();
-		audio.dispose();
+		if (sdlInitialized) Sdl3Cursor.disposeSystemCursors();
+		if (audio != null) audio.dispose();
 		if (glDebugCallback != null) {
 			glDebugCallback.free();
 			glDebugCallback = null;
