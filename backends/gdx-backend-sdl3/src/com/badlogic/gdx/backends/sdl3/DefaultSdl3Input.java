@@ -186,7 +186,7 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		SCANCODE_TO_GDX_KEYS[SDL_SCANCODE_APPLICATION] = Input.Keys.MENU;
 	}
 
-	final Sdl3Window window;
+	Sdl3Window window;
 	private InputProcessor inputProcessor;
 	final InputEventQueue eventQueue = new InputEventQueue();
 
@@ -205,6 +205,18 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		windowHandleChanged(window.getWindowHandle());
 	}
 
+	/** Test-only constructor; production callers use {@link #DefaultSdl3Input(Sdl3Window)}. Skips the SDL window
+	 * binding so unit tests can exercise {@link #handleKey} and other pure-logic methods without a running SDL3 context. */
+	DefaultSdl3Input () {
+	}
+
+	/** Factory for the test-only constructor. Returned instance has a null {@code window} field; calling
+	 * {@link #handleSDLEvent} on it will NPE — that's intentional. Use this only to exercise pure-logic helpers like
+	 * {@link #handleKey}. */
+	static DefaultSdl3Input forTest () {
+		return new DefaultSdl3Input();
+	}
+
 	/** Receive a routed {@code SDL_Event} from {@link Sdl3Application}. Translates SDL3 input-domain events into
 	 * {@link InputEventQueue} entries and updates {@link AbstractInput#pressedKeys}/etc.
 	 *
@@ -216,27 +228,14 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		int type = event.type();
 		switch (type) {
 		case SDL_EVENT_KEY_DOWN: {
-			if (event.key().repeat()) break; // drop key repeats; only initial press generates keyDown
+			if (event.key().repeat()) break; // drop key repeats
 			int keyCode = getGdxKeyCode(event.key().scancode());
-			long time = System.nanoTime();
-			eventQueue.keyDown(keyCode, time);
-			pressedKeyCount++;
-			keyJustPressed = true;
-			pressedKeys[keyCode] = true;
-			justPressedKeys[keyCode] = true;
-			window.requestRendering();
-			lastCharacter = 0;
-			char character = characterForKeyCode(keyCode);
-			if (character != 0) {
-				lastCharacter = character;
-				eventQueue.keyTyped(character, time);
-			}
+			dispatchKeyDown(keyCode, System.nanoTime());
 			break;
 		}
 		case SDL_EVENT_KEY_UP: {
 			int keyCode = getGdxKeyCode(event.key().scancode());
-			pressedKeyCount = Math.max(0, pressedKeyCount - 1);
-			pressedKeys[keyCode] = false;
+			handleKey(keyCode, false);
 			window.requestRendering();
 			eventQueue.keyUp(keyCode, System.nanoTime());
 			break;
@@ -250,7 +249,7 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 			for (int i = 0; i < text.length(); i++) {
 				char c = text.charAt(i);
 				if ((c & 0xff00) == 0xf700) continue; // filter private-use AppKit function keys
-				lastCharacter = c;
+				handleTextInput(c);
 				eventQueue.keyTyped(c, time);
 			}
 			break;
@@ -326,6 +325,53 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		}
 		default:
 			break;
+		}
+	}
+
+	/** The full KEY_DOWN dispatch path: state bookkeeping (via {@link #handleKey}) + eventQueue.keyDown +
+	 * requestRendering + character mapping + (conditional) lastCharacter assignment + keyTyped. Extracted from
+	 * {@link #handleSDLEvent}'s {@code SDL_EVENT_KEY_DOWN} case as a test seam so the lastCharacter regression vector
+	 * (an unconditional {@code lastCharacter = 0;} re-introduced anywhere in this dispatch) is unit-testable without
+	 * synthesizing a real {@code SDL_Event}.
+	 *
+	 * <p>{@code window} may be null when called from {@link #forTest()}; the requestRendering call no-ops in that case. */
+	void dispatchKeyDown (int gdxKeyCode, long time) {
+		handleKey(gdxKeyCode, true);
+		eventQueue.keyDown(gdxKeyCode, time);
+		if (window != null) window.requestRendering();
+		char character = characterForKeyCode(gdxKeyCode);
+		if (character != 0) {
+			lastCharacter = character;
+			eventQueue.keyTyped(character, time);
+		}
+	}
+
+	/** Per-character state update for text input. Skips AppKit private-use function-key codepoints. Does NOT dispatch
+	 * to the event queue — callers in {@link #handleSDLEvent} do that separately. */
+	void handleTextInput (char c) {
+		// Defensive filter — the dispatch loop in handleSDLEvent also filters these, so this guard only fires if a
+		// caller (e.g. unit test) bypasses that loop. Cheap enough to keep for self-consistency.
+		if ((c & 0xff00) == 0xf700) return;
+		lastCharacter = c;
+	}
+
+	/** State-array bookkeeping for keydown/keyup. Skips indexing for {@link Input.Keys#UNKNOWN} (= 0) — all unmapped
+	 * scancodes collide there. Does NOT dispatch to the event queue; callers in {@link #handleSDLEvent} do that
+	 * separately so UNKNOWN events still reach listeners. */
+	void handleKey (int gdxKeyCode, boolean isDown) {
+		if (gdxKeyCode == Input.Keys.UNKNOWN) return;
+		if (isDown) {
+			if (!pressedKeys[gdxKeyCode]) {
+				pressedKeys[gdxKeyCode] = true;
+				pressedKeyCount++;
+				justPressedKeys[gdxKeyCode] = true;
+				keyJustPressed = true;
+			}
+		} else {
+			if (pressedKeys[gdxKeyCode]) {
+				pressedKeys[gdxKeyCode] = false;
+				pressedKeyCount = Math.max(0, pressedKeyCount - 1);
+			}
 		}
 	}
 
