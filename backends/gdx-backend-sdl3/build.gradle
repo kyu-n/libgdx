@@ -22,9 +22,19 @@ if (JavaVersion.current().isJava9Compatible()) {
 sourceCompatibility = versions.javaLwjgl3
 targetCompatibility = versions.javaLwjgl3
 
+sourceSets.test.java.srcDirs = ["test"]
+
 dependencies {
 	api libraries.lwjgl3sdl
 	api gdxnatives.desktop
+	testImplementation libraries.junit
+}
+
+test {
+	testLogging {
+		showStandardStreams = true
+		exceptionFormat = "full"
+	}
 }
 
 
