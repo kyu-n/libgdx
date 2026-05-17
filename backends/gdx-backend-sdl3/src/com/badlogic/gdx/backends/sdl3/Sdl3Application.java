@@ -383,9 +383,8 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		}
 	}
 
-	/** Look up a window by its cached {@code SDL_WindowID}. Compares against {@link Sdl3Window#getSdlWindowID()}, which is
-	 * populated once at window creation, so this method makes ZERO native calls per event. (The previous implementation called
-	 * {@code SDL_GetWindowID} per window per event — a JNI/FFM hop on the hot event-dispatch path.) */
+	/** Look up a window by its cached {@code SDL_WindowID}. The ID is captured once at window creation in
+	 * {@link Sdl3Window#create}, so dispatch is a plain int comparison. */
 	private Sdl3Window findWindowByID (int sdlWindowID) {
 		for (int i = 0; i < windows.size; i++) {
 			Sdl3Window w = windows.get(i);

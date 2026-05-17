@@ -94,9 +94,9 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 		}
 		updateFramebufferInfo();
 		initiateGL();
-		// SDL3 delivers resize as SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED through the application's event pump; Sdl3Window invokes
-		// updateFramebufferInfo from that event handler, so no native callback registration is needed here. This also avoids
-		// allocating an anonymous CallbackI subclass, which NPEs on JDK 25 under the LWJGL 3.4.1 FFM backend.
+		// SDL3 delivers resize as SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED through the application event pump; Sdl3Window invokes
+		// updateFramebufferInfo from that event handler. This is the idiomatic SDL3 pattern — there is no per-window
+		// callback API equivalent to glfwSetWindowSizeCallback to register against.
 	}
 
 	/** Initialize the {@link GLVersion} record from the live OpenGL context. Requires SDL_GL_MakeCurrent to have been called on
@@ -536,9 +536,8 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 
 	@Override
 	public void dispose () {
-		// No callbacks to free in the SDL3 path — resize is delivered as a pull-event by Sdl3Application's loop, not via a
-		// CallbackI registered against SDL. This keeps the backend off the LWJGL 3.4.1 FFM upcall path that NPEs under
-		// JDK 25 (documented in the plan's Risks section).
+		// No per-window callbacks to free — SDL3's event model is pull-based; window events are dispatched from
+		// Sdl3Application.pollEvents and routed via Sdl3Window.handleWindowEvent.
 	}
 
 	public static class Sdl3DisplayMode extends DisplayMode {
