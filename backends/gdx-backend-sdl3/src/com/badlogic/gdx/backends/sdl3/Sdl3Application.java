@@ -501,6 +501,17 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		return applicationLogger;
 	}
 
+	/** Set the polling rate during idle (non-rendering) time. Mutates the live config. Must be positive.
+	 * Parity with {@link Sdl3Graphics#setForegroundFPS(int)}, which has been live-mutable since the backend was added. */
+	public void setIdleFPS (int fps) {
+		if (fps <= 0) throw new IllegalArgumentException("idleFPS must be positive, got " + fps);
+		config.idleFPS = fps;
+	}
+
+	public int getIdleFPS () {
+		return config.idleFPS;
+	}
+
 	@Override
 	public ApplicationType getType () {
 		return ApplicationType.Desktop;
