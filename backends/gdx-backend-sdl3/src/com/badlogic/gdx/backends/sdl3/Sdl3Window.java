@@ -17,6 +17,7 @@
 package com.badlogic.gdx.backends.sdl3;
 
 import static org.lwjgl.sdl.SDLPixels.SDL_PIXELFORMAT_ABGR8888;
+import static org.lwjgl.sdl.SDLSurface.SDL_AddSurfaceAlternateImage;
 import static org.lwjgl.sdl.SDLSurface.SDL_CreateSurfaceFrom;
 import static org.lwjgl.sdl.SDLSurface.SDL_DestroySurface;
 import static org.lwjgl.sdl.SDLVideo.SDL_FLASH_UNTIL_FOCUSED;
@@ -227,31 +228,43 @@ public class Sdl3Window implements Disposable {
 
 	static void setIcon (long windowHandle, Pixmap[] images) {
 		if (isMacOS()) return;
-		if (images.length == 0) return;
+		if (images == null || images.length == 0) return;
 
-		// SDL_SetWindowIcon takes a single SDL_Surface, so the caller is expected to pre-select a resolution. We use the first
-		// non-null Pixmap as the default.
-		Pixmap chosen = images[0];
-		Pixmap tmpRGBA = null;
-		if (chosen.getFormat() != Pixmap.Format.RGBA8888) {
-			tmpRGBA = new Pixmap(chosen.getWidth(), chosen.getHeight(), Pixmap.Format.RGBA8888);
-			tmpRGBA.setBlending(Pixmap.Blending.None);
-			tmpRGBA.drawPixmap(chosen, 0, 0);
-			chosen = tmpRGBA;
+		SDL_Surface[] surfaces = new SDL_Surface[images.length];
+		Pixmap[] conversions = new Pixmap[images.length];
+		try {
+			for (int i = 0; i < images.length; i++) {
+				Pixmap source = images[i];
+				Pixmap rgba = source;
+				if (source.getFormat() != Pixmap.Format.RGBA8888) {
+					rgba = new Pixmap(source.getWidth(), source.getHeight(), Pixmap.Format.RGBA8888);
+					rgba.setBlending(Pixmap.Blending.None);
+					rgba.drawPixmap(source, 0, 0);
+					conversions[i] = rgba;
+				}
+				// Pixmap RGBA8888 is byte-packed R,G,B,A in memory. On little-endian hosts this matches SDL_PIXELFORMAT_ABGR8888
+				// (which reads bytes A,B,G,R as a uint32). libGDX targets little-endian Desktop platforms.
+				int pitch = rgba.getWidth() * 4;
+				surfaces[i] = SDL_CreateSurfaceFrom(rgba.getWidth(), rgba.getHeight(), SDL_PIXELFORMAT_ABGR8888,
+					rgba.getPixels(), pitch);
+				if (surfaces[i] == null) continue;
+				if (i > 0 && surfaces[0] != null) {
+					SDL_AddSurfaceAlternateImage(surfaces[0], surfaces[i]);
+				}
+			}
+			if (surfaces[0] != null) {
+				SDL_SetWindowIcon(windowHandle, surfaces[0]);
+			}
+		} finally {
+			// Destroy surfaces FIRST (they reference the Pixmap's pixel buffer via SDL_CreateSurfaceFrom — no copy),
+			// then dispose the temporary RGBA conversion pixmaps.
+			for (SDL_Surface surface : surfaces) {
+				if (surface != null) SDL_DestroySurface(surface);
+			}
+			for (Pixmap conv : conversions) {
+				if (conv != null) conv.dispose();
+			}
 		}
-
-		// Pixmap RGBA8888 is byte-packed R,G,B,A in memory. On little-endian hosts this matches SDL_PIXELFORMAT_ABGR8888
-		// (which reads bytes A,B,G,R as a uint32). The SDL_PIXELFORMAT_RGBA32 alias resolves to ABGR8888 on LE for the
-		// same reason; we hard-code ABGR8888 since libGDX targets little-endian Desktop platforms.
-		int pitch = chosen.getWidth() * 4;
-		SDL_Surface surface = SDL_CreateSurfaceFrom(chosen.getWidth(), chosen.getHeight(), SDL_PIXELFORMAT_ABGR8888,
-			chosen.getPixels(), pitch);
-		if (surface != null) {
-			SDL_SetWindowIcon(windowHandle, surface);
-			SDL_DestroySurface(surface);
-		}
-
-		if (tmpRGBA != null) tmpRGBA.dispose();
 	}
 
 	public void setTitle (CharSequence title) {
