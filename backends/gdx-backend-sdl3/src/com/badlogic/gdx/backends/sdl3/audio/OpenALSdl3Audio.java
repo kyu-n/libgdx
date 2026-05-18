@@ -104,6 +104,8 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 			return;
 		}
 		if (!alcMakeContextCurrent(context)) {
+			alcDestroyContext(context);
+			alcCloseDevice(device);
 			noDevice = true;
 			System.err.println("OpenALSdl3Audio: Failed to make OpenAL context current; audio disabled.");
 			return;
