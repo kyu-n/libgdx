@@ -22,7 +22,6 @@ import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_BUTTON_DOWN;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_BUTTON_UP;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_MOTION;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_WHEEL;
-import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_TEXT_EDITING;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_TEXT_INPUT;
 import static org.lwjgl.sdl.SDLMouse.SDL_BUTTON_LEFT;
 import static org.lwjgl.sdl.SDLMouse.SDL_BUTTON_MIDDLE;
@@ -254,9 +253,6 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 			}
 			break;
 		}
-		case SDL_EVENT_TEXT_EDITING:
-			// IME composition events are not surfaced to libGDX; drop them.
-			break;
 		case SDL_EVENT_MOUSE_MOTION: {
 			int x = (int)event.motion().x();
 			int y = (int)event.motion().y();
