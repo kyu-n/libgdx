@@ -493,7 +493,13 @@ public class Sdl3Window implements Disposable {
 
 	@Override
 	public void dispose () {
-		listener.pause();
+		// Skip the dispose-time pause if PauseGate already paused us (FOCUS_LOST / MINIMIZED). Without this check
+		// the listener would see two pause() calls without an intervening resume(), defeating the gate's
+		// deduplication. We bypass the full firePause path because PauseGate.onPause also iterates
+		// lifecycleListeners, which the per-frame close loop already drives separately for the last-window case.
+		if (!pauseGate.isPaused()) {
+			listener.pause();
+		}
 		listener.dispose();
 		Sdl3Cursor.dispose(this);
 		graphics.dispose();
@@ -584,6 +590,10 @@ public class Sdl3Window implements Disposable {
 				paused = false;
 				onResume.run();
 			}
+		}
+
+		boolean isPaused () {
+			return paused;
 		}
 	}
 }
