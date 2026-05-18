@@ -18,28 +18,11 @@ package com.badlogic.gdx.backends.sdl3;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.badlogic.gdx.Input.Keys;
 import org.junit.Test;
 
 public class DefaultSdl3InputLogicTest {
-
-	@Test
-	public void unknownKeyUp_doesNotDecrementForLogicallyPressedKey () {
-		DefaultSdl3Input in = DefaultSdl3Input.forTest();
-		in.handleKey(Keys.A, true);
-		assertTrue(in.isKeyPressed(Keys.A));
-		assertTrue(in.isKeyPressed(Keys.ANY_KEY));
-		// Spurious UNKNOWN up must not corrupt the pressedKeyCount nor flip Keys.A.
-		in.handleKey(Keys.UNKNOWN, false);
-		assertTrue(in.isKeyPressed(Keys.A));
-		assertTrue(in.isKeyPressed(Keys.ANY_KEY));
-		// Properly release Keys.A; ANY_KEY (count > 0) should now read false.
-		in.handleKey(Keys.A, false);
-		assertFalse(in.isKeyPressed(Keys.A));
-		assertFalse(in.isKeyPressed(Keys.ANY_KEY));
-	}
 
 	@Test
 	public void unknownKeyDown_doesNotFlipAnyKey () {

@@ -281,19 +281,25 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 	/** Apply the back-buffer / framebuffer attributes captured in this configuration to SDL3 via {@code SDL_GL_SetAttribute}. Must
 	 * be called between {@code SDL_Init} and {@code SDL_CreateWindow(SDL_WINDOW_OPENGL)}. */
 	void applyBackBufferAttributes () {
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, r);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, g);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, b);
-		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, a);
-		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, depth);
-		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, stencil);
-		if (samples > 0) {
-			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, samples);
-		} else {
-			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
-			SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+		for (int[] pair : backBufferAttributePairs(this)) {
+			SDL_GL_SetAttribute(pair[0], pair[1]);
 		}
+	}
+
+	/** Returns the (attribute, value) pairs that {@link #applyBackBufferAttributes} hands to {@code SDL_GL_SetAttribute},
+	 * exposed as a pure-data seam so unit tests can verify the field-to-enum wiring without a live SDL context. Order is
+	 * not load-bearing — the SDL call is idempotent per attribute. */
+	static int[][] backBufferAttributePairs (Sdl3ApplicationConfiguration config) {
+		boolean ms = config.samples > 0;
+		return new int[][] { //
+			{SDL_GL_RED_SIZE, config.r}, //
+			{SDL_GL_GREEN_SIZE, config.g}, //
+			{SDL_GL_BLUE_SIZE, config.b}, //
+			{SDL_GL_ALPHA_SIZE, config.a}, //
+			{SDL_GL_DEPTH_SIZE, config.depth}, //
+			{SDL_GL_STENCIL_SIZE, config.stencil}, //
+			{SDL_GL_MULTISAMPLEBUFFERS, ms ? 1 : 0}, //
+			{SDL_GL_MULTISAMPLESAMPLES, ms ? config.samples : 0}};
 	}
 
 	/** Set transparent window hint. Results may vary on different OS and GPUs.

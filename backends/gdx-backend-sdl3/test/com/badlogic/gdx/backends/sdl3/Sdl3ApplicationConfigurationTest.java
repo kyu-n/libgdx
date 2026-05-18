@@ -18,6 +18,17 @@ package com.badlogic.gdx.backends.sdl3;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_ALPHA_SIZE;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_BLUE_SIZE;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_DEPTH_SIZE;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_GREEN_SIZE;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_MULTISAMPLEBUFFERS;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_MULTISAMPLESAMPLES;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_RED_SIZE;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_STENCIL_SIZE;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import org.junit.Test;
 
@@ -64,34 +75,42 @@ public class Sdl3ApplicationConfigurationTest {
 		assertEquals(src.disableAudio, dst.disableAudio);
 	}
 
+	/** Verifies the field→SDL_GL_* enum wiring inside {@link Sdl3ApplicationConfiguration#applyBackBufferAttributes}. The
+	 * previous setter tests only checked that {@code setRGBABits} wrote to {@code r/g/b/a} — a tautology that would still
+	 * pass if {@code applyBackBufferAttributes} swapped red and blue or ignored the fields entirely. Distinct r/g/b/a
+	 * values catch any cross-wiring bug. */
 	@Test
-	public void setRGBABits_updatesBackBufferConfig () {
+	public void backBufferAttributePairs_wiresFieldsToCorrectGLEnums () {
 		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();
-		c.setRGBABits(8, 8, 8, 8);
-		assertEquals(8, c.r);
-		assertEquals(8, c.g);
-		assertEquals(8, c.b);
-		assertEquals(8, c.a);
-	}
-
-	@Test
-	public void setDepthBits_updates () {
-		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();
+		c.setRGBABits(7, 6, 5, 4);
 		c.setDepthBits(24);
-		assertEquals(24, c.depth);
-	}
-
-	@Test
-	public void setStencilBits_updates () {
-		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();
 		c.setStencilBits(8);
-		assertEquals(8, c.stencil);
+		c.setSamples(4);
+		Map<Integer, Integer> pairs = pairsAsMap(c);
+		assertEquals(7, (int)pairs.get(SDL_GL_RED_SIZE));
+		assertEquals(6, (int)pairs.get(SDL_GL_GREEN_SIZE));
+		assertEquals(5, (int)pairs.get(SDL_GL_BLUE_SIZE));
+		assertEquals(4, (int)pairs.get(SDL_GL_ALPHA_SIZE));
+		assertEquals(24, (int)pairs.get(SDL_GL_DEPTH_SIZE));
+		assertEquals(8, (int)pairs.get(SDL_GL_STENCIL_SIZE));
+		assertEquals(1, (int)pairs.get(SDL_GL_MULTISAMPLEBUFFERS));
+		assertEquals(4, (int)pairs.get(SDL_GL_MULTISAMPLESAMPLES));
 	}
 
 	@Test
-	public void setSamples_updates () {
+	public void backBufferAttributePairs_zeroSamples_disablesMultisample () {
 		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();
-		c.setSamples(4);
-		assertEquals(4, c.samples);
+		c.setSamples(0);
+		Map<Integer, Integer> pairs = pairsAsMap(c);
+		assertEquals(0, (int)pairs.get(SDL_GL_MULTISAMPLEBUFFERS));
+		assertEquals(0, (int)pairs.get(SDL_GL_MULTISAMPLESAMPLES));
+	}
+
+	private static Map<Integer, Integer> pairsAsMap (Sdl3ApplicationConfiguration c) {
+		Map<Integer, Integer> map = new HashMap<>();
+		for (int[] pair : Sdl3ApplicationConfiguration.backBufferAttributePairs(c)) {
+			map.put(pair[0], pair[1]);
+		}
+		return map;
 	}
 }
