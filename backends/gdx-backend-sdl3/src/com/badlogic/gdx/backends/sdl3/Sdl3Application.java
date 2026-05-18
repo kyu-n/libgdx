@@ -646,27 +646,30 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 	 * This function only just instantiates a {@link Sdl3Window} and returns immediately. The actual window creation is postponed
 	 * with {@link Application#postRunnable(Runnable)} until after all existing windows are updated. */
 	public Sdl3Window newWindow (ApplicationListener listener, Sdl3WindowConfiguration config) {
-		Sdl3ApplicationConfiguration appConfig = Sdl3ApplicationConfiguration.copy(this.config);
+		final Sdl3ApplicationConfiguration appConfig = Sdl3ApplicationConfiguration.copy(this.config);
 		appConfig.setWindowConfiguration(config);
 		if (appConfig.title == null) appConfig.title = listener.getClass().getSimpleName();
-		return createWindow(appConfig, listener, windows.get(0).getWindowHandle());
+		// Sdl3Window construction is a plain field init — safe on any thread — but every subsequent touch of
+		// `windows` (read for shared-context handle AND the add() below) must happen on the main thread, because
+		// loop()'s per-frame close path mutates `windows` without synchronization. Previously
+		// windows.get(0).getWindowHandle() ran on the caller's thread and raced with removeValue().
+		final Sdl3Window window = new Sdl3Window(listener, lifecycleListeners, appConfig, this);
+		postRunnable(new Runnable() {
+			public void run () {
+				long sharedContext = windows.size > 0 ? windows.get(0).getWindowHandle() : 0;
+				createWindow(window, appConfig, sharedContext);
+				windows.add(window);
+			}
+		});
+		return window;
 	}
 
 	private Sdl3Window createWindow (final Sdl3ApplicationConfiguration config, ApplicationListener listener,
 		final long sharedContext) {
+		// Called only by the constructor for the primary window; the secondary-window path defers into newWindow's
+		// runnable so it can read windows.get(0) safely on the main thread.
 		final Sdl3Window window = new Sdl3Window(listener, lifecycleListeners, config, this);
-		if (sharedContext == 0) {
-			// the main window is created immediately
-			createWindow(window, config, sharedContext);
-		} else {
-			// creation of additional windows is deferred to avoid GL context trouble
-			postRunnable(new Runnable() {
-				public void run () {
-					createWindow(window, config, sharedContext);
-					windows.add(window);
-				}
-			});
-		}
+		createWindow(window, config, sharedContext);
 		return window;
 	}
 
