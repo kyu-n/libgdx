@@ -29,6 +29,7 @@ import static org.lwjgl.sdl.SDLVideo.SDL_SetWindowFullscreenMode;
 import static org.lwjgl.sdl.SDLVideo.SDL_SetWindowPosition;
 import static org.lwjgl.sdl.SDLVideo.SDL_SetWindowResizable;
 import static org.lwjgl.sdl.SDLVideo.SDL_SetWindowSize;
+import static org.lwjgl.sdl.SDLVideo.SDL_SyncWindow;
 
 import java.nio.IntBuffer;
 
@@ -407,6 +408,10 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 		if (!SDL_SetWindowFullscreen(window.getWindowHandle(), true)) {
 			System.err.println("Sdl3Graphics: SDL_SetWindowFullscreen(true) failed: " + SDL_GetError());
 		}
+		// SDL_SetWindowFullscreenMode/SDL_SetWindowFullscreen are async on Wayland and macOS — pending window-state
+		// changes don't take effect until the compositor confirms. Without SDL_SyncWindow, updateFramebufferInfo()
+		// below reads pre-toggle dimensions and the first frame after the transition uses the wrong glViewport.
+		SDL_SyncWindow(window.getWindowHandle());
 		updateFramebufferInfo();
 		setVSync(window.getConfig().vSyncEnabled);
 		return true;
@@ -450,6 +455,9 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 				SDL_SetWindowPosition(window.getWindowHandle(), windowPosXBeforeFullscreen, windowPosYBeforeFullscreen);
 			}
 		}
+		// Same async-toggle concern as setFullscreenMode — SDL_SetWindowSize/SDL_SetWindowFullscreen(false) are
+		// confirmed by the compositor on Wayland/macOS, not synchronously applied.
+		SDL_SyncWindow(window.getWindowHandle());
 		updateFramebufferInfo();
 		return true;
 	}
