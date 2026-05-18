@@ -226,13 +226,17 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 			Sdl3Window window = createWindow(config, listener, 0);
 			windows.add(window);
 			loop();
-			cleanupWindows();
 		} catch (Throwable t) {
 			if (t instanceof RuntimeException)
 				throw (RuntimeException)t;
 			else
 				throw new GdxRuntimeException(t);
 		} finally {
+			// cleanupWindows must run even when loop() throws. The ApplicationListener contract guarantees
+			// dispose() is called and preceded by pause() — a render-loop exception that skipped cleanupWindows
+			// would leak GL resources and silently violate that contract. The per-frame close-loop already fires
+			// pause/dispose when the last window closes normally; this finally covers the abnormal-exit case.
+			cleanupWindows();
 			cleanup();
 		}
 	}
@@ -293,12 +297,21 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 					// application will be disposed when _all_ windows have been disposed, which is the case,
 					// when there is only 1 window left, which is in the process of being disposed.
 					synchronized (lifecycleListeners) {
-						for (int i = lifecycleListeners.size - 1; i >= 0; i--) {
-							LifecycleListener l = lifecycleListeners.get(i);
-							l.pause();
-							l.dispose();
+						try {
+							for (int i = lifecycleListeners.size - 1; i >= 0; i--) {
+								LifecycleListener l = lifecycleListeners.get(i);
+								try {
+									l.pause();
+									l.dispose();
+								} catch (Throwable t) {
+									error("Sdl3Application", "Lifecycle listener threw during pause/dispose", t);
+								}
+							}
+						} finally {
+							// Clear unconditionally so a throw mid-iteration can't leave listeners that the finally-driven
+							// cleanupWindows() would then re-fire pause/dispose on.
+							lifecycleListeners.clear();
 						}
-						lifecycleListeners.clear();
 					}
 				}
 				// Make the closing window's GL context current so its listener.dispose() deletes per-context state
@@ -415,10 +428,22 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 	}
 
 	protected void cleanupWindows () {
+		// Snapshot then iterate outside the lock so a listener that removes itself (or other listeners) from inside
+		// pause()/dispose() doesn't mutate the array under the enhanced-for iterator. Matches the firePause/fireResume
+		// pattern in Sdl3Window.
+		LifecycleListener[] snapshot;
 		synchronized (lifecycleListeners) {
-			for (LifecycleListener lifecycleListener : lifecycleListeners) {
+			snapshot = lifecycleListeners.toArray(LifecycleListener.class);
+		}
+		for (LifecycleListener lifecycleListener : snapshot) {
+			// A listener throw here would propagate out of the constructor's finally, suppress the original
+			// loop() exception, and skip cleanup() — leaking SDL + audio. Log and move on so the rest of the
+			// finally chain still runs.
+			try {
 				lifecycleListener.pause();
 				lifecycleListener.dispose();
+			} catch (Throwable t) {
+				error("Sdl3Application", "Lifecycle listener threw during pause/dispose", t);
 			}
 		}
 		for (Sdl3Window window : windows) {

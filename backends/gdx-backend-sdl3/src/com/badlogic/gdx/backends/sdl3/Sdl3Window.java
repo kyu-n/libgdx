@@ -538,18 +538,25 @@ public class Sdl3Window implements Disposable {
 	}
 
 	private void firePause () {
+		// Snapshot under the lock and iterate the snapshot outside. A listener that calls
+		// Gdx.app.removeLifecycleListener(this) from inside its own pause() would otherwise mutate the array
+		// mid-iteration, which libGDX's Array iterator does not permit.
+		LifecycleListener[] snapshot;
 		synchronized (lifecycleListeners) {
-			for (LifecycleListener l : lifecycleListeners)
-				l.pause();
+			snapshot = lifecycleListeners.toArray(LifecycleListener.class);
 		}
+		for (LifecycleListener l : snapshot)
+			l.pause();
 		listener.pause();
 	}
 
 	private void fireResume () {
+		LifecycleListener[] snapshot;
 		synchronized (lifecycleListeners) {
-			for (LifecycleListener l : lifecycleListeners)
-				l.resume();
+			snapshot = lifecycleListeners.toArray(LifecycleListener.class);
 		}
+		for (LifecycleListener l : snapshot)
+			l.resume();
 		listener.resume();
 	}
 
