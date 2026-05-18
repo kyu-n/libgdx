@@ -838,14 +838,21 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		long sharedContextWindow) {
 		int[][] ladder = chooseLadder(config);
 		SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, sharedContextWindow != 0 ? 1 : 0);
+		StringBuilder failures = null;
 		try {
 			for (int[] attempt : ladder) {
 				applyProfileAttributes(config, attempt[0], attempt[1], attempt[2]);
 				long ctx = SDL_GL_CreateContext(windowHandle);
 				if (ctx != 0) return ctx;
-				System.err.println("Sdl3Application: GL " + attempt[0] + "." + attempt[1] + " context creation failed: "
-					+ SDL_GetError());
+				// Accumulate per-rung failures and only log them if the whole ladder exhausts. SDL_GL_CreateContext
+				// doesn't always set SDL_GetError (per SDL convention some drivers return null with no error set),
+				// so per-rung spam is misleading when the next rung succeeds and the eventual user-visible result
+				// is just "GL context created on the fallback rung".
+				if (failures == null) failures = new StringBuilder();
+				failures.append("  GL ").append(attempt[0]).append('.').append(attempt[1]).append(": ")
+					.append(SDL_GetError()).append('\n');
 			}
+			System.err.println("Sdl3Application: all GL ladder attempts failed:\n" + failures);
 			return 0;
 		} finally {
 			SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
