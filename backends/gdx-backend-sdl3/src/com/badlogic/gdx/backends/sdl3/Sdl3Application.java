@@ -61,6 +61,7 @@ import static org.lwjgl.sdl.SDLVideo.SDL_WINDOWPOS_CENTERED;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_BORDERLESS;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_FULLSCREEN;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_HIDDEN;
+import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_HIGH_PIXEL_DENSITY;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_MAXIMIZED;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_OPENGL;
 import static org.lwjgl.sdl.SDLVideo.SDL_WINDOW_RESIZABLE;
@@ -690,9 +691,14 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		// Apply manual GL attribute overrides last so the user can override defaults if needed.
 		config.executeWindowHintOverrides();
 
-		// Compute window flags: OPENGL is mandatory for an OpenGL backend; HIDDEN until we call SDL_ShowWindow after
+		// Compute window flags: OPENGL is mandatory for an OpenGL backend; HIGH_PIXEL_DENSITY opts the window in to
+		// HiDPI (Retina/Wayland fractional-scale). Without that flag SDL3 makes pixel size match window size, so
+		// SDL_GetWindowSizeInPixels would return logical pixels — glViewport(0,0, backBuffer) would clip to a
+		// fraction of the surface on every Retina Mac. libGDX consumers reach the physical-pixel path via
+		// HdpiMode.Pixels; logical-pixel consumers (HdpiMode.Logical, the libGDX default) get the same window-size
+		// numbers either way. HIDDEN until we call SDL_ShowWindow after
 		// the create-and-clear handshake so the user doesn't see a single uncleared frame on slow compositors.
-		long flags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
+		long flags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 		if (config.windowResizable) flags |= SDL_WINDOW_RESIZABLE;
 		if (config.windowMaximized) flags |= SDL_WINDOW_MAXIMIZED;
 		if (!config.windowDecorated) flags |= SDL_WINDOW_BORDERLESS;
