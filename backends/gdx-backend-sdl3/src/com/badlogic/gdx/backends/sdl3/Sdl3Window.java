@@ -18,7 +18,7 @@ package com.badlogic.gdx.backends.sdl3;
 
 import static org.lwjgl.sdl.SDLPixels.SDL_PIXELFORMAT_ABGR8888;
 import static org.lwjgl.sdl.SDLSurface.SDL_AddSurfaceAlternateImage;
-import static org.lwjgl.sdl.SDLSurface.SDL_CreateSurfaceFrom;
+import static org.lwjgl.sdl.SDLSurface.SDL_CreateSurface;
 import static org.lwjgl.sdl.SDLSurface.SDL_DestroySurface;
 import static org.lwjgl.sdl.SDLVideo.SDL_FLASH_UNTIL_FOCUSED;
 import static org.lwjgl.sdl.SDLVideo.SDL_FlashWindow;
@@ -47,6 +47,7 @@ import java.util.List;
 import com.badlogic.gdx.*;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.sdl.SDL_Surface;
+import org.lwjgl.system.MemoryUtil;
 
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.utils.Array;
@@ -239,16 +240,19 @@ public class Sdl3Window implements Disposable {
 				Pixmap rgba = source;
 				if (source.getFormat() != Pixmap.Format.RGBA8888) {
 					rgba = new Pixmap(source.getWidth(), source.getHeight(), Pixmap.Format.RGBA8888);
+					conversions[i] = rgba; // assign before further calls so the finally disposes on any throw below
 					rgba.setBlending(Pixmap.Blending.None);
 					rgba.drawPixmap(source, 0, 0);
-					conversions[i] = rgba;
 				}
-				// Pixmap RGBA8888 is byte-packed R,G,B,A in memory. On little-endian hosts this matches SDL_PIXELFORMAT_ABGR8888
-				// (which reads bytes A,B,G,R as a uint32). libGDX targets little-endian Desktop platforms.
-				int pitch = rgba.getWidth() * 4;
-				surfaces[i] = SDL_CreateSurfaceFrom(rgba.getWidth(), rgba.getHeight(), SDL_PIXELFORMAT_ABGR8888,
-					rgba.getPixels(), pitch);
+				// Allocate SDL-owned pixel memory and copy the Pixmap bytes in. SDL_CreateSurfaceFrom would store a
+				// pointer to the Pixmap's buffer, and SDL_AddSurfaceAlternateImage retains references on the alt chain —
+				// disposing the conversion Pixmap before SDL releases the icon would leave SDL reading freed memory.
+				surfaces[i] = SDL_CreateSurface(rgba.getWidth(), rgba.getHeight(), SDL_PIXELFORMAT_ABGR8888);
 				if (surfaces[i] == null) continue;
+				// Pixmap RGBA8888 is byte-packed R,G,B,A; SDL_PIXELFORMAT_ABGR8888 on little-endian hosts matches that
+				// layout. libGDX targets little-endian Desktop platforms.
+				MemoryUtil.memCopy(MemoryUtil.memAddress(rgba.getPixels()), MemoryUtil.memAddress(surfaces[i].pixels()),
+					(long)rgba.getWidth() * rgba.getHeight() * 4);
 				if (i > 0 && surfaces[0] != null) {
 					SDL_AddSurfaceAlternateImage(surfaces[0], surfaces[i]);
 				}
@@ -257,8 +261,9 @@ public class Sdl3Window implements Disposable {
 				SDL_SetWindowIcon(windowHandle, surfaces[0]);
 			}
 		} finally {
-			// Destroy surfaces FIRST (they reference the Pixmap's pixel buffer via SDL_CreateSurfaceFrom — no copy),
-			// then dispose the temporary RGBA conversion pixmaps.
+			// SDL_SetWindowIcon takes its own reference and SDL_AddSurfaceAlternateImage took refs on alts. Our local
+			// destroys decrement those refs; SDL's internal refs keep the pixel data alive while the window holds the
+			// icon. Pixmaps are independently disposed because surfaces no longer reference their buffers.
 			for (SDL_Surface surface : surfaces) {
 				if (surface != null) SDL_DestroySurface(surface);
 			}
