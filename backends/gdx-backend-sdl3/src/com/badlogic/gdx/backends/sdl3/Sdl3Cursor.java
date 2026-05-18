@@ -74,12 +74,12 @@ public class Sdl3Cursor implements Cursor {
 			throw new GdxRuntimeException("Cursor image pixmap is not in RGBA8888 format.");
 		}
 
-		if ((pixmap.getWidth() & (pixmap.getWidth() - 1)) != 0) {
+		if (pixmap.getWidth() <= 0 || (pixmap.getWidth() & (pixmap.getWidth() - 1)) != 0) {
 			throw new GdxRuntimeException(
 				"Cursor image pixmap width of " + pixmap.getWidth() + " is not a power-of-two greater than zero.");
 		}
 
-		if ((pixmap.getHeight() & (pixmap.getHeight() - 1)) != 0) {
+		if (pixmap.getHeight() <= 0 || (pixmap.getHeight() & (pixmap.getHeight() - 1)) != 0) {
 			throw new GdxRuntimeException(
 				"Cursor image pixmap height of " + pixmap.getHeight() + " is not a power-of-two greater than zero.");
 		}
@@ -144,6 +144,20 @@ public class Sdl3Cursor implements Cursor {
 		}
 		systemCursors.clear();
 		cursorHiddenByNone = false;
+		// Best-effort: dispose any user-created cursors the application forgot to dispose. Otherwise the static
+		// `cursors` array carries stale SDL_Cursor / SDL_Surface pointers across Sdl3Application re-init in the
+		// same JVM (test harnesses), and a later dispose() call on a held-over Sdl3Cursor reference would
+		// SDL_DestroyCursor a freed-or-recycled pointer. Snapshot first because Sdl3Cursor.dispose() mutates the
+		// array via removeValue.
+		Sdl3Cursor[] leftover = cursors.toArray(Sdl3Cursor.class);
+		for (Sdl3Cursor cursor : leftover) {
+			try {
+				cursor.dispose();
+			} catch (Throwable t) {
+				// best-effort during teardown — keep going
+			}
+		}
+		cursors.clear();
 	}
 
 	static void setSystemCursor (long windowHandle, SystemCursor systemCursor) {
