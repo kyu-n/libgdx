@@ -269,7 +269,13 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 				runnables.clear();
 			}
 			for (Runnable runnable : executedRunnables) {
-				runnable.run();
+				try {
+					runnable.run();
+				} catch (Throwable t) {
+					// Posted runnables (notably the deferred newWindow create) must not tear down the event loop —
+					// a secondary-window create failure should not kill the primary window.
+					error("Sdl3Application", "Posted runnable threw", t);
+				}
 			}
 			if (shouldRequestRendering) {
 				// Must follow Runnables execution so changes done by Runnables are reflected
