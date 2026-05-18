@@ -300,7 +300,16 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 						lifecycleListeners.clear();
 					}
 				}
-				closedWindow.dispose();
+				// Make the closing window's GL context current so its listener.dispose() deletes per-context state
+				// (FBOs/VAOs are non-shared) from the right namespace. Otherwise we'd be deleting against whichever
+				// window the render loop made current last — corrupting that window's namespace.
+				closedWindow.makeCurrent();
+				currentWindow = closedWindow;
+				try {
+					closedWindow.dispose();
+				} catch (Throwable t) {
+					error("Sdl3Application", "Window dispose threw", t);
+				}
 
 				windows.removeValue(closedWindow, false);
 			}
@@ -412,7 +421,14 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 			}
 		}
 		for (Sdl3Window window : windows) {
-			window.dispose();
+			// Make each window's context current so its listener.dispose() runs against its own GL namespace.
+			window.makeCurrent();
+			currentWindow = window;
+			try {
+				window.dispose();
+			} catch (Throwable t) {
+				error("Sdl3Application", "Window dispose threw", t);
+			}
 		}
 		windows.clear();
 	}
