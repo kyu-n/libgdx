@@ -539,6 +539,9 @@ public class Sdl3Window implements Disposable {
 		return true;
 	}
 
+	/** Request user attention for this window. SDL3 implements this via {@code SDL_FLASH_UNTIL_FOCUSED}, which keeps flashing
+	 * the window/taskbar until the user focuses it. This differs from the LWJGL3 backend's {@code glfwRequestWindowAttention},
+	 * which is a one-shot bounce — the visible effect is platform/window-manager-specific in both cases. */
 	public void flash () {
 		SDL_FlashWindow(windowHandle, SDL_FLASH_UNTIL_FOCUSED);
 	}
