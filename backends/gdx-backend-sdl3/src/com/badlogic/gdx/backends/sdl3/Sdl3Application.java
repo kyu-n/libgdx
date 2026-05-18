@@ -39,6 +39,7 @@ import static org.lwjgl.sdl.SDLInit.SDL_Quit;
 import static org.lwjgl.sdl.SDLInit.SDL_SetAppMetadata;
 import static org.lwjgl.sdl.SDLVideo.SDL_CreateWindow;
 import static org.lwjgl.sdl.SDLVideo.SDL_DestroyWindow;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_DestroyContext;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_DEBUG_FLAG;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_FLAGS;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_MAJOR_VERSION;
@@ -214,13 +215,13 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 			this.audio = new MockAudio();
 		}
 		Gdx.audio = audio;
-		this.files = Gdx.files = createFiles();
-		this.net = Gdx.net = new Sdl3Net(config);
-		this.clipboard = new Sdl3Clipboard();
-
-		this.sync = new Sync();
-
 		try {
+			this.files = Gdx.files = createFiles();
+			this.net = Gdx.net = new Sdl3Net(config);
+			this.clipboard = new Sdl3Clipboard();
+
+			this.sync = new Sync();
+
 			Sdl3Window window = createWindow(config, listener, 0);
 			windows.add(window);
 			loop();
@@ -696,12 +697,11 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 			throw new GdxRuntimeException("Couldn't create window: " + SDL_GetError());
 		}
 
-		// Anything between SDL_CreateWindow and a successful GL context owns the window handle. If we throw before
-		// glContext is established (fullscreen mode set, position/icon setup, or the GL fallback ladder exhausting),
-		// destroy the window so the SDL_Window doesn't leak past the caller — once we return the handle, ownership
-		// transfers to Sdl3Window.dispose().
-		long glContext;
-		boolean glContextCreated = false;
+		// Everything from SDL_CreateWindow through the final GL validation owns the window+context pair. Any throw
+		// before windowReady flips destroys both, so the caller doesn't get back a half-initialized handle. Once we
+		// return, ownership transfers to Sdl3Window.dispose().
+		long glContext = 0;
+		boolean windowReady = false;
 		try {
 			if (config.fullscreenMode != null) {
 				Sdl3Graphics.Sdl3DisplayMode mode = config.fullscreenMode;
@@ -743,31 +743,39 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 			if (glContext == 0) {
 				throw new GdxRuntimeException("Couldn't create OpenGL context: " + SDL_GetError());
 			}
-			glContextCreated = true;
+
+			SDL_GL_MakeCurrent(windowHandle, glContext);
+
+			if (!SDL_GL_SetSwapInterval(config.vSyncEnabled ? 1 : 0)) {
+				System.err.println("Sdl3Application: SDL_GL_SetSwapInterval failed: " + SDL_GetError());
+			}
+
+			GL.createCapabilities();
+
+			initiateGL();
+			if (!glVersion.isVersionEqualToOrHigher(2, 0))
+				throw new GdxRuntimeException("OpenGL 2.0 or higher with the FBO extension is required. OpenGL version: "
+					+ glVersion.getVersionString() + "\n" + glVersion.getDebugVersionString());
+
+			if (!supportsFBO()) {
+				throw new GdxRuntimeException("OpenGL 2.0 or higher with the FBO extension is required. OpenGL version: "
+					+ glVersion.getVersionString() + ", FBO extension: false\n" + glVersion.getDebugVersionString());
+			}
+
+			if (config.debug) {
+				glDebugCallback = GLUtil.setupDebugMessageCallback(config.debugStream);
+				setGLDebugMessageControl(GLDebugMessageSeverity.NOTIFICATION, false);
+			}
+
+			windowReady = true;
 		} finally {
-			if (!glContextCreated) SDL_DestroyWindow(windowHandle);
-		}
-		SDL_GL_MakeCurrent(windowHandle, glContext);
-
-		if (!SDL_GL_SetSwapInterval(config.vSyncEnabled ? 1 : 0)) {
-			System.err.println("Sdl3Application: SDL_GL_SetSwapInterval failed: " + SDL_GetError());
-		}
-
-		GL.createCapabilities();
-
-		initiateGL();
-		if (!glVersion.isVersionEqualToOrHigher(2, 0))
-			throw new GdxRuntimeException("OpenGL 2.0 or higher with the FBO extension is required. OpenGL version: "
-				+ glVersion.getVersionString() + "\n" + glVersion.getDebugVersionString());
-
-		if (!supportsFBO()) {
-			throw new GdxRuntimeException("OpenGL 2.0 or higher with the FBO extension is required. OpenGL version: "
-				+ glVersion.getVersionString() + ", FBO extension: false\n" + glVersion.getDebugVersionString());
-		}
-
-		if (config.debug) {
-			glDebugCallback = GLUtil.setupDebugMessageCallback(config.debugStream);
-			setGLDebugMessageControl(GLDebugMessageSeverity.NOTIFICATION, false);
+			if (!windowReady) {
+				if (glContext != 0) {
+					SDL_GL_MakeCurrent(0L, 0L);
+					SDL_GL_DestroyContext(glContext);
+				}
+				SDL_DestroyWindow(windowHandle);
+			}
 		}
 
 		return new long[] {windowHandle, glContext};
