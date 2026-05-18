@@ -403,6 +403,10 @@ public class OpenALSdl3Audio implements Sdl3Audio {
 
 		alcDestroyContext(context);
 		alcCloseDevice(device);
+		// Null out the native handles so any package-private reader that races with dispose() reads 0 instead of a
+		// freed-or-recycled OpenAL pointer.
+		context = 0L;
+		device = 0L;
 	}
 
 	public AudioDevice newAudioDevice (int sampleRate, final boolean isMono) {

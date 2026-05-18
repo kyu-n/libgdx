@@ -19,9 +19,9 @@ package com.badlogic.gdx.backends.sdl3;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
@@ -171,16 +171,17 @@ public class Sdl3Preferences implements Preferences {
 	@Override
 	public void flush () {
 		FileHandle tmp = file.sibling(file.name() + ".tmp");
-		OutputStream out = null;
-		try {
-			out = new BufferedOutputStream(tmp.write(false));
+		try (FileOutputStream fos = new FileOutputStream(tmp.file());
+			BufferedOutputStream out = new BufferedOutputStream(fos)) {
 			properties.storeToXML(out, null);
-			out.close();
-			out = null;
-		} catch (Exception ex) {
+			out.flush();
+			// Force data + file-metadata to disk before the rename. Without sync(), ext4 with the default
+			// data=ordered mode can commit the rename to the journal while the temp file's data blocks are still
+			// pending writeback — a power loss between the two leaves the target at zero length. ATOMIC_MOVE
+			// protects the directory-entry switch, not the data writeback that precedes it.
+			fos.getFD().sync();
+		} catch (IOException ex) {
 			throw new GdxRuntimeException("Error writing preferences: " + file, ex);
-		} finally {
-			StreamUtils.closeQuietly(out);
 		}
 		try {
 			Files.move(tmp.file().toPath(), file.file().toPath(),
