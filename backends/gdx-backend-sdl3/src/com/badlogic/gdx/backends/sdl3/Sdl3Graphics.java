@@ -19,6 +19,7 @@ package com.badlogic.gdx.backends.sdl3;
 import static org.lwjgl.sdl.SDLError.SDL_GetError;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_ExtensionSupported;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_SetSwapInterval;
+import static org.lwjgl.sdl.SDLVideo.SDL_GetFullscreenDisplayModes;
 import static org.lwjgl.sdl.SDLVideo.SDL_GetWindowDisplayScale;
 import static org.lwjgl.sdl.SDLVideo.SDL_GetWindowPixelDensity;
 import static org.lwjgl.sdl.SDLVideo.SDL_GetWindowSize;
@@ -37,6 +38,7 @@ import com.badlogic.gdx.AbstractGraphics;
 import com.badlogic.gdx.Application;
 
 import org.lwjgl.BufferUtils;
+import org.lwjgl.PointerBuffer;
 
 import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.Cursor.SystemCursor;
@@ -393,20 +395,70 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 		// SDL3 splits "go fullscreen" (boolean) and "fullscreen display mode" (struct) into two calls. Set the mode first so
 		// that SDL has the target geometry ready when fullscreen is enabled — otherwise the first transition picks the
 		// desktop default and we'd see a flicker.
+		//
+		// Use SDL3's authoritative SDL_DisplayMode from SDL_GetFullscreenDisplayModes rather than constructing one from
+		// scratch. SDL3 requires pixel_density, format, and refresh_rate_numerator/denominator to be set correctly;
+		// passing a partially-populated struct produces "Invalid fullscreen display mode" even when w/h/refresh_rate
+		// nominally match an exposed mode. Looking up by w/h/refresh_rate and reusing SDL's own struct sidesteps the
+		// problem and survives future SDL_DisplayMode field additions.
+		//
+		// Memory-lifetime note: the PointerBuffer returned by SDL_GetFullscreenDisplayModes is GC-managed by LWJGL,
+		// and the SDL_DisplayMode wrappers we get from it hold pointers INTO that array. The SetWindowFullscreenMode
+		// call must happen while the PointerBuffer is still alive on the local stack; returning a wrapper from a
+		// helper method and using it after the helper returns is a use-after-free risk.
+		PointerBuffer modes = SDL_GetFullscreenDisplayModes((int)newMode.monitorHandle);
+		if (modes == null) {
+			System.err.println("Sdl3Graphics: SDL_GetFullscreenDisplayModes failed: " + SDL_GetError());
+			return false;
+		}
+		// Find the matching candidate and read its fields into a stack-allocated SDL_DisplayMode.
+		// We can't pass SDL3's struct pointer directly because LWJGL3's SDL_DisplayMode.validate()
+		// (called inside nSDL_SetWindowFullscreenMode) reads the struct's `internal` field and
+		// requires it to be non-NULL — but SDL3 returns public-API mode structs with internal=NULL
+		// (it's a private opaque pointer set only on SDL3's internal copies). SDL3 itself doesn't
+		// care about `internal` on input; LWJGL3 over-validates. Copy the fields into a stack
+		// struct, set `internal` to the source pointer as a non-NULL sentinel, pass that.
+		SDL_DisplayMode matched = null;
+		int count = modes.remaining();
+		for (int i = 0; i < count; i++) {
+			SDL_DisplayMode candidate = SDL_DisplayMode.create(modes.get(i));
+			if (candidate.w() == newMode.width
+				&& candidate.h() == newMode.height
+				&& Math.abs(candidate.refresh_rate() - newMode.refreshRate) < 0.5f) {
+				matched = candidate;
+				break;
+			}
+		}
+		if (matched == null) {
+			System.err.println("Sdl3Graphics: setFullscreenMode: no SDL_DisplayMode matched "
+				+ newMode.width + "x" + newMode.height + "@" + newMode.refreshRate
+				+ "Hz on display " + newMode.monitorHandle);
+			return false;
+		}
+		long sourceAddr = matched.address();
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			SDL_DisplayMode sdlMode = SDL_DisplayMode.malloc(stack);
-			sdlMode.displayID((int)newMode.monitorHandle);
-			sdlMode.w(newMode.width);
-			sdlMode.h(newMode.height);
-			sdlMode.refresh_rate(newMode.refreshRate);
-			// pixel_density / format / refresh_rate_numerator-denominator left at zero — SDL will resolve to the closest
-			// supported mode for this display on its own.
+			sdlMode.displayID(matched.displayID());
+			sdlMode.format(matched.format());
+			sdlMode.w(matched.w());
+			sdlMode.h(matched.h());
+			sdlMode.pixel_density(matched.pixel_density());
+			sdlMode.refresh_rate(matched.refresh_rate());
+			sdlMode.refresh_rate_numerator(matched.refresh_rate_numerator());
+			sdlMode.refresh_rate_denominator(matched.refresh_rate_denominator());
+			// Set internal to the source mode's address so LWJGL3's validate() sees a non-NULL
+			// pointer. SDL3 ignores this field on input — it's an output-only opaque pointer
+			// set by SDL3 itself on its internal mode list. The value we pass here is never
+			// dereferenced by SDL3.
+			sdlMode.internal(sourceAddr);
 			if (!SDL_SetWindowFullscreenMode(window.getWindowHandle(), sdlMode)) {
 				System.err.println("Sdl3Graphics: SDL_SetWindowFullscreenMode failed: " + SDL_GetError());
+				return false;
 			}
 		}
 		if (!SDL_SetWindowFullscreen(window.getWindowHandle(), true)) {
 			System.err.println("Sdl3Graphics: SDL_SetWindowFullscreen(true) failed: " + SDL_GetError());
+			return false;
 		}
 		// SDL_SetWindowFullscreenMode/SDL_SetWindowFullscreen are async on Wayland and macOS — pending window-state
 		// changes don't take effect until the compositor confirms. Without SDL_SyncWindow, updateFramebufferInfo()
@@ -435,6 +487,7 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 			}
 			if (!SDL_SetWindowFullscreen(window.getWindowHandle(), false)) {
 				System.err.println("Sdl3Graphics: SDL_SetWindowFullscreen(false) failed: " + SDL_GetError());
+				return false;
 			}
 		}
 		SDL_SetWindowSize(window.getWindowHandle(), width, height);
