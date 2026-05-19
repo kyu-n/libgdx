@@ -139,7 +139,14 @@ public class OpenALAudioDevice implements AudioDevice {
 			// Wait for buffer to be free.
 			try {
 				Thread.sleep((long)(1000 * secondsPerBuffer));
-			} catch (InterruptedException ignored) {
+			} catch (InterruptedException e) {
+				// Honour interrupt: re-set the flag so callers up the stack can detect
+				// shutdown, then bail out of writeSamples with a runtime exception. Without
+				// this, writeSamples loops forever after interrupt (the caller can't unblock
+				// it for graceful shutdown), and concurrent dispose() of this AudioDevice
+				// races with the still-running writer on the same OpenAL source ID.
+				Thread.currentThread().interrupt();
+				throw new GdxRuntimeException("AudioDevice write interrupted", e);
 			}
 		}
 
