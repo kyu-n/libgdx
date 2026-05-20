@@ -244,7 +244,11 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 	protected void loop () {
 		Array<Sdl3Window> closedWindows = new Array<Sdl3Window>();
 		while (running && windows.size > 0) {
-			// FIXME put it on a separate thread
+			// audio.update() drives streaming-source buffer refill from the render thread,
+			// matching the gdx-backend-lwjgl3 main-loop integration (Lwjgl3Application:168-169).
+			// OS-level mixing happens inside OpenAL's internal thread; OpenAL device-hotplug
+			// detection lives on a dedicated daemon thread in OpenALSdl3Audio:69,137,185,386
+			// (mirror of OpenALLwjgl3Audio.observerThread).
 			audio.update();
 
 			// Pull events from SDL3 BEFORE rendering so close/resize/focus updates are reflected this frame.
