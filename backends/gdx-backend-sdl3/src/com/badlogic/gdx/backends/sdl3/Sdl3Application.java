@@ -33,6 +33,7 @@ import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_LAST;
 import static org.lwjgl.sdl.SDLEvents.SDL_PollEvent;
 import static org.lwjgl.sdl.SDLHints.SDL_HINT_VIDEO_DRIVER;
 import static org.lwjgl.sdl.SDLInit.SDL_INIT_EVENTS;
+import static org.lwjgl.sdl.SDLInit.SDL_INIT_GAMEPAD;
 import static org.lwjgl.sdl.SDLInit.SDL_INIT_VIDEO;
 import static org.lwjgl.sdl.SDLInit.SDL_Init;
 import static org.lwjgl.sdl.SDLInit.SDL_Quit;
@@ -133,7 +134,7 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 			Sdl3NativesLoader.load();
 			// SDL_INIT_AUDIO intentionally omitted — audio is handled by lwjgl-openal in OpenALSdl3Audio,
 			// not SDL3's audio subsystem. Avoids the extra init cost and any device probing SDL3 would do.
-			if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
+			if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD)) {
 				throw new GdxRuntimeException("Unable to initialize SDL3: " + SDL_GetError());
 			}
 			sdlInitialized = true;
