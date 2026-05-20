@@ -192,7 +192,7 @@ class Sdl3GL30 extends Sdl3GL20 implements com.badlogic.gdx.graphics.GL30 {
 	public Buffer glGetBufferPointerv (int target, int pname) {
 		// FIXME glGetBufferPointerv needs a proper translation
 		// return GL15.glGetBufferPointer(target, pname);
-		throw new UnsupportedOperationException("Not implemented");
+		return null;
 	}
 
 	@Override
