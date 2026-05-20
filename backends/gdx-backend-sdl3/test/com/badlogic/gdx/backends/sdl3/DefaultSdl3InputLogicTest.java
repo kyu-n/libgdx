@@ -20,6 +20,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.Input.OnscreenKeyboardType;
+import com.badlogic.gdx.Input.TextInputListener;
 import org.junit.Test;
 
 public class DefaultSdl3InputLogicTest {
@@ -91,5 +93,24 @@ public class DefaultSdl3InputLogicTest {
 		// BACKSPACE maps to '\b' via characterForKeyCode — dispatch must update lastCharacter to that char.
 		in.dispatchKeyDown(Keys.BACKSPACE, 1234567890L);
 		assertEquals('\b', in.lastCharacter);
+	}
+
+	@Test
+	public void getTextInput_neverInvokesListener () {
+		DefaultSdl3Input in = DefaultSdl3Input.forTest();
+		CountingTextInputListener listener = new CountingTextInputListener();
+		in.getTextInput(listener, "title", "text", "hint");
+		assertEquals(0, listener.canceledCount);
+		assertEquals(0, listener.inputCount);
+		in.getTextInput(listener, "title", "text", "hint", OnscreenKeyboardType.Default);
+		assertEquals(0, listener.canceledCount);
+		assertEquals(0, listener.inputCount);
+	}
+
+	private static final class CountingTextInputListener implements TextInputListener {
+		int canceledCount;
+		int inputCount;
+		@Override public void canceled () { canceledCount++; }
+		@Override public void input (String text) { inputCount++; }
 	}
 }

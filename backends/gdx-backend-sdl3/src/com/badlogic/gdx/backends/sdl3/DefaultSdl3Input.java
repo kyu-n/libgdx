@@ -524,7 +524,6 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 	@Override
 	public void getTextInput (TextInputListener listener, String title, String text, String hint, OnscreenKeyboardType type) {
 		// FIXME getTextInput does nothing
-		listener.canceled();
 	}
 
 	@Override
