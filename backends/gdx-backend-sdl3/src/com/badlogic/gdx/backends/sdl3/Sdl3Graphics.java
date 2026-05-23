@@ -411,13 +411,9 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 			System.err.println("Sdl3Graphics: SDL_GetFullscreenDisplayModes failed: " + SDL_GetError());
 			return false;
 		}
-		// Find the matching candidate and read its fields into a stack-allocated SDL_DisplayMode.
-		// We can't pass SDL3's struct pointer directly because LWJGL3's SDL_DisplayMode.validate()
-		// (called inside nSDL_SetWindowFullscreenMode) reads the struct's `internal` field and
-		// requires it to be non-NULL — but SDL3 returns public-API mode structs with internal=NULL
-		// (it's a private opaque pointer set only on SDL3's internal copies). SDL3 itself doesn't
-		// care about `internal` on input; LWJGL3 over-validates. Copy the fields into a stack
-		// struct, set `internal` to the source pointer as a non-NULL sentinel, pass that.
+		// Find the matching candidate and copy its fields into a stack-allocated SDL_DisplayMode.
+		// The candidate struct points into the PointerBuffer's GC-managed memory (see lifetime
+		// note above) — copying lets us own the struct outright for the SetWindowFullscreenMode call.
 		SDL_DisplayMode matched = null;
 		int count = modes.remaining();
 		for (int i = 0; i < count; i++) {
@@ -435,7 +431,6 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 				+ "Hz on display " + newMode.monitorHandle);
 			return false;
 		}
-		long sourceAddr = matched.address();
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			SDL_DisplayMode sdlMode = SDL_DisplayMode.malloc(stack);
 			sdlMode.displayID(matched.displayID());
@@ -446,11 +441,6 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 			sdlMode.refresh_rate(matched.refresh_rate());
 			sdlMode.refresh_rate_numerator(matched.refresh_rate_numerator());
 			sdlMode.refresh_rate_denominator(matched.refresh_rate_denominator());
-			// Set internal to the source mode's address so LWJGL3's validate() sees a non-NULL
-			// pointer. SDL3 ignores this field on input — it's an output-only opaque pointer
-			// set by SDL3 itself on its internal mode list. The value we pass here is never
-			// dereferenced by SDL3.
-			sdlMode.internal(sourceAddr);
 			if (!SDL_SetWindowFullscreenMode(window.getWindowHandle(), sdlMode)) {
 				System.err.println("Sdl3Graphics: SDL_SetWindowFullscreenMode failed: " + SDL_GetError());
 				return false;
