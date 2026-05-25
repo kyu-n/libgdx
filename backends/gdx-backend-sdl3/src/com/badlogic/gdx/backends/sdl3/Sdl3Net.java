@@ -16,8 +16,7 @@
 
 package com.badlogic.gdx.backends.sdl3;
 
-import java.awt.Desktop;
-import java.net.URI;
+import org.lwjgl.sdl.SDLMisc;
 
 import com.badlogic.gdx.Net;
 import com.badlogic.gdx.net.NetJavaImpl;
@@ -28,8 +27,8 @@ import com.badlogic.gdx.net.ServerSocketHints;
 import com.badlogic.gdx.net.Socket;
 import com.badlogic.gdx.net.SocketHints;
 
-/** LWJGL implementation of the {@link Net} API, it could be reused in other Desktop backends since it doesn't depend on LWJGL.
- * @author acoppes */
+/** SDL3 {@link Net} implementation. HTTP/sockets use the shared {@code NetJavaImpl}; {@code openURI} delegates to
+ * {@code SDL_OpenURL}. */
 public class Sdl3Net implements Net {
 
 	NetJavaImpl netJavaImpl;
@@ -68,40 +67,10 @@ public class Sdl3Net implements Net {
 		return new NetJavaSocketImpl(protocol, host, port, hints);
 	}
 
-	enum OpenStrategy { OPEN, XDG_OPEN, DESKTOP_BROWSE, NONE }
-
-	static OpenStrategy chooseStrategy (String osName, boolean desktopSupported) {
-		String lower = osName == null ? "" : osName.toLowerCase(java.util.Locale.ROOT);
-		boolean isMac = lower.contains("mac") || lower.contains("darwin");
-		boolean isLinux = lower.contains("linux");
-		if (isMac) return OpenStrategy.OPEN;
-		// Linux must come BEFORE Desktop.browse(): Desktop.browse() hangs on
-		// many GTK/Wayland setups; xdg-open is the desktop-portal-aware path.
-		if (isLinux) return OpenStrategy.XDG_OPEN;
-		if (desktopSupported) return OpenStrategy.DESKTOP_BROWSE;
-		return OpenStrategy.NONE;
-	}
-
 	@Override
 	public boolean openURI (String uri) {
-		boolean desktopSupported = Desktop.isDesktopSupported()
-			&& Desktop.getDesktop().isSupported(Desktop.Action.BROWSE);
-		OpenStrategy strategy = chooseStrategy(System.getProperty("os.name", ""), desktopSupported);
 		try {
-			switch (strategy) {
-			case OPEN:
-				new ProcessBuilder("open", new URI(uri).toString()).start();
-				return true;
-			case XDG_OPEN:
-				new ProcessBuilder("xdg-open", new URI(uri).toString()).start();
-				return true;
-			case DESKTOP_BROWSE:
-				Desktop.getDesktop().browse(new URI(uri));
-				return true;
-			case NONE:
-			default:
-				return false;
-			}
+			return SDLMisc.SDL_OpenURL(uri);
 		} catch (Throwable t) {
 			return false;
 		}
