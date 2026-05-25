@@ -107,6 +107,44 @@ public class DefaultSdl3InputLogicTest {
 		assertEquals(0, listener.inputCount);
 	}
 
+	@Test
+	public void setComposition_storesTextAndCursor () {
+		DefaultSdl3Input in = DefaultSdl3Input.forTest();
+		in.setComposition("ni", 1, 2);
+		assertEquals("ni", in.getCompositionText());
+		assertEquals(1, in.getCompositionCursorStart());
+		assertEquals(2, in.getCompositionCursorLength());
+	}
+
+	@Test
+	public void setComposition_nullText_normalizesToEmpty () {
+		DefaultSdl3Input in = DefaultSdl3Input.forTest();
+		in.setComposition(null, 0, 0);
+		assertEquals("", in.getCompositionText());
+	}
+
+	@Test
+	public void getCompositionVersion_incrementsOnEachSet () {
+		DefaultSdl3Input in = DefaultSdl3Input.forTest();
+		int v0 = in.getCompositionVersion();
+		in.setComposition("a", 0, 0);
+		int v1 = in.getCompositionVersion();
+		in.setComposition("ab", 0, 0);
+		int v2 = in.getCompositionVersion();
+		assertEquals(v0 + 1, v1);
+		assertEquals(v0 + 2, v2);
+	}
+
+	@Test
+	public void setComposition_clearResetsText () {
+		DefaultSdl3Input in = DefaultSdl3Input.forTest();
+		in.setComposition("abc", 2, 1);
+		in.setComposition("", 0, 0);
+		assertEquals("", in.getCompositionText());
+		assertEquals(0, in.getCompositionCursorStart());
+		assertEquals(0, in.getCompositionCursorLength());
+	}
+
 	private static final class CountingTextInputListener implements TextInputListener {
 		int canceledCount;
 		int inputCount;

@@ -27,6 +27,7 @@ import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_BUTTON_UP;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_MOTION;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_WHEEL;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_QUIT;
+import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_TEXT_EDITING;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_TEXT_INPUT;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_FIRST;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_LAST;
@@ -381,6 +382,11 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 				case SDL_EVENT_KEY_DOWN:
 				case SDL_EVENT_KEY_UP: {
 					Sdl3Window w = findWindowByID(ev.key().windowID());
+					if (w != null) routeInput(w, ev);
+					break;
+				}
+				case SDL_EVENT_TEXT_EDITING: {
+					Sdl3Window w = findWindowByID(ev.edit().windowID());
 					if (w != null) routeInput(w, ev);
 					break;
 				}

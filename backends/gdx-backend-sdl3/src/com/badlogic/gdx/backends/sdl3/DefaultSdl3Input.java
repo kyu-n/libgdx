@@ -22,7 +22,10 @@ import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_BUTTON_DOWN;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_BUTTON_UP;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_MOTION;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_MOUSE_WHEEL;
+import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_TEXT_EDITING;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_TEXT_INPUT;
+import static org.lwjgl.sdl.SDLKeyboard.SDL_ClearComposition;
+import static org.lwjgl.sdl.SDLKeyboard.SDL_SetTextInputArea;
 import static org.lwjgl.sdl.SDLMouse.SDL_BUTTON_LEFT;
 import static org.lwjgl.sdl.SDLMouse.SDL_BUTTON_MIDDLE;
 import static org.lwjgl.sdl.SDLMouse.SDL_BUTTON_RIGHT;
@@ -31,6 +34,10 @@ import static org.lwjgl.sdl.SDLMouse.SDL_BUTTON_X2;
 import static org.lwjgl.sdl.SDLScancode.*;
 
 import com.badlogic.gdx.input.NativeInputConfiguration;
+
+import org.lwjgl.sdl.SDL_Rect;
+import org.lwjgl.sdl.SDL_TextEditingEvent;
+import org.lwjgl.system.MemoryStack;
 
 import com.badlogic.gdx.AbstractInput;
 import com.badlogic.gdx.Input;
@@ -199,6 +206,11 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 	final boolean[] mouseButtonPressed = new boolean[5];
 	char lastCharacter;
 
+	/** Current IME pre-edit (composition) state, polled by the app each frame. Mutated only on the event-loop thread, so
+	 * unlocked fields are safe. */
+	private String compositionText = "";
+	private int compositionCursorStart, compositionCursorLength, compositionVersion;
+
 	public DefaultSdl3Input (Sdl3Window window) {
 		this.window = window;
 		windowHandleChanged(window.getWindowHandle());
@@ -239,7 +251,17 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 			eventQueue.keyUp(keyCode, System.nanoTime());
 			break;
 		}
+		case SDL_EVENT_TEXT_EDITING: {
+			// In-progress IME composition (pre-edit), stored for the app to render inline; only committed text (TEXT_INPUT) reaches keyTyped.
+			SDL_TextEditingEvent te = event.edit();
+			String s = te.textString();
+			setComposition(s == null ? "" : s, te.start(), te.length());
+			window.requestRendering();
+			break;
+		}
 		case SDL_EVENT_TEXT_INPUT: {
+			// Commit ends the composition — clear the pre-edit so it can't leak into committed text.
+			setComposition("", 0, 0);
 			String text = event.text().textString();
 			if (text == null || text.isEmpty()) break;
 			long time = System.nanoTime();
@@ -351,9 +373,49 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		lastCharacter = c;
 	}
 
-	/** State-array bookkeeping for keydown/keyup. Skips indexing for {@link Input.Keys#UNKNOWN} (= 0) — all unmapped
-	 * scancodes collide there. Does NOT dispatch to the event queue; callers in {@link #handleSDLEvent} do that
-	 * separately so UNKNOWN events still reach listeners. */
+	/** Update the IME composition state and bump {@link #compositionVersion}. Package-private so unit tests can drive it
+	 * directly. {@code null} text normalizes to {@code ""}. */
+	void setComposition (String text, int cursorStart, int cursorLen) {
+		this.compositionText = text == null ? "" : text;
+		this.compositionCursorStart = cursorStart;
+		this.compositionCursorLength = cursorLen;
+		this.compositionVersion++;
+	}
+
+	@Override
+	public String getCompositionText () {
+		return compositionText;
+	}
+
+	@Override
+	public int getCompositionCursorStart () {
+		return compositionCursorStart;
+	}
+
+	@Override
+	public int getCompositionCursorLength () {
+		return compositionCursorLength;
+	}
+
+	@Override
+	public int getCompositionVersion () {
+		return compositionVersion;
+	}
+
+	@Override
+	public void setTextInputArea (int x, int y, int w, int h, int cursorX) {
+		long handle = window.getWindowHandle();
+		if (handle == 0L) return;
+		try (MemoryStack stack = MemoryStack.stackPush()) {
+			SDL_Rect.Buffer rect = SDL_Rect.malloc(1, stack);
+			rect.x(x).y(y).w(w).h(h);
+			SDL_SetTextInputArea(handle, rect, cursorX);
+		}
+	}
+
+	/** State-array bookkeeping for keydown/keyup. Skips indexing for {@link Input.Keys#UNKNOWN} (= 0) — all unmapped scancodes
+	 * collide there. Does NOT dispatch to the event queue; callers in {@link #handleSDLEvent} do that separately so UNKNOWN events
+	 * still reach listeners. */
 	void handleKey (int gdxKeyCode, boolean isDown) {
 		if (gdxKeyCode == Input.Keys.UNKNOWN) return;
 		if (isDown) {
@@ -400,12 +462,10 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		// is
 		// required for the input domain — the per-event window resolution already happens upstream of handleSDLEvent.
 		resetPollingStates();
-		// SDL3 only emits SDL_EVENT_TEXT_INPUT while text input is active per-window. libGDX games expect character events
-		// unconditionally, so we enable text input by default. Apps that want IME behaviour mediated by
-		// setOnscreenKeyboardVisible can still toggle it off and back on.
-		if (windowHandle != 0L) {
-			org.lwjgl.sdl.SDLKeyboard.SDL_StartTextInput(windowHandle);
-		}
+		// Text input is gated on demand (via setOnscreenKeyboardVisible) rather than forced on at init, so an idle IME can't
+		// intercept keystrokes while no field is focused. Rebinding the window drops any in-flight pre-edit.
+		if (windowHandle != 0L) SDL_ClearComposition(windowHandle);
+		setComposition("", 0, 0);
 	}
 
 	@Override
@@ -656,6 +716,9 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 			org.lwjgl.sdl.SDLKeyboard.SDL_StartTextInput(handle);
 		} else {
 			org.lwjgl.sdl.SDLKeyboard.SDL_StopTextInput(handle);
+			// Drop any in-flight pre-edit so a half-typed composition can't linger after the field is unfocused.
+			SDL_ClearComposition(handle);
+			setComposition("", 0, 0);
 		}
 	}
 

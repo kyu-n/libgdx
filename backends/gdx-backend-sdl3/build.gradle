@@ -31,6 +31,8 @@ dependencies {
 }
 
 test {
+	// Exclude nested helper classes; a non-public inner class trips JUnit4's "Invalid test class ... is not public".
+	exclude '**/*$*.class'
 	testLogging {
 		showStandardStreams = true
 		exceptionFormat = "full"
