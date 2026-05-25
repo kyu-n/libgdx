@@ -442,7 +442,15 @@ public class Sdl3Window implements Disposable {
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_RESTORED: {
-			if (windowListener != null) windowListener.iconified(false);
+			// SDL3 emits RESTORED on exit from either minimized OR maximized state. Dispatch from the tracked previous state
+			// so consumers see maximized(false), not only iconified(false).
+			if (windowListener != null) {
+				if (iconified) {
+					windowListener.iconified(false);
+				} else {
+					windowListener.maximized(false);
+				}
+			}
 			iconified = false;
 			if (config.pauseWhenMinimized) pauseGate.requestResume();
 			break;
