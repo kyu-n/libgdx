@@ -61,11 +61,10 @@ public class Sdl3ApplicationConfigurationTest {
 		assertEquals(1, c.idleFPS);
 	}
 
-	/** Sanity check on {@link Sdl3ApplicationConfiguration#copy} — the live config that
-	 * Sdl3Application captures in its constructor must keep the same {@code idleFPS} and
-	 * {@code disableAudio} values as the user-supplied one. (The actual NPE fix in
-	 * cleanup() cannot be exercised here — it only triggers on partial SDL_Init failure
-	 * during construction. This test only validates the copy semantics cleanup relies on.) */
+	/** Sanity check on {@link Sdl3ApplicationConfiguration#copy} — the live config that Sdl3Application captures in its
+	 * constructor must keep the same {@code idleFPS} and {@code disableAudio} values as the user-supplied one. (The actual NPE fix
+	 * in cleanup() cannot be exercised here — it only triggers on partial SDL_Init failure during construction. This test only
+	 * validates the copy semantics cleanup relies on.) */
 	@Test
 	public void copy_preservesIdleFpsAndDisableAudio () {
 		Sdl3ApplicationConfiguration src = new Sdl3ApplicationConfiguration();
@@ -75,10 +74,10 @@ public class Sdl3ApplicationConfigurationTest {
 		assertEquals(src.disableAudio, dst.disableAudio);
 	}
 
-	/** Verifies the field→SDL_GL_* enum wiring inside {@link Sdl3ApplicationConfiguration#applyBackBufferAttributes}. The
-	 * previous setter tests only checked that {@code setRGBABits} wrote to {@code r/g/b/a} — a tautology that would still
-	 * pass if {@code applyBackBufferAttributes} swapped red and blue or ignored the fields entirely. Distinct r/g/b/a
-	 * values catch any cross-wiring bug. */
+	/** Verifies the field→SDL_GL_* enum wiring inside {@link Sdl3ApplicationConfiguration#applyBackBufferAttributes}. The previous
+	 * setter tests only checked that {@code setRGBABits} wrote to {@code r/g/b/a} — a tautology that would still pass if
+	 * {@code applyBackBufferAttributes} swapped red and blue or ignored the fields entirely. Distinct r/g/b/a values catch any
+	 * cross-wiring bug. */
 	@Test
 	public void backBufferAttributePairs_wiresFieldsToCorrectGLEnums () {
 		Sdl3ApplicationConfiguration c = new Sdl3ApplicationConfiguration();

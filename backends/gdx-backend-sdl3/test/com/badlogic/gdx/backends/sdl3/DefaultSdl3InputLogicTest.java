@@ -68,13 +68,14 @@ public class DefaultSdl3InputLogicTest {
 	}
 
 	/** Regression guard for Task 14/15 — the pre-fix KEY_DOWN case in {@code handleSDLEvent} unconditionally ran
-	 * {@code lastCharacter = 0;} before checking the character mapping. For any key without a character mapping
-	 * (letters via SDL3's scancode → keycode pipeline, function keys, arrow keys, etc.) this silently wiped the
-	 * most-recent text-input character between {@code SDL_EVENT_TEXT_INPUT} and the next character event.
+	 * {@code lastCharacter = 0;} before checking the character mapping. For any key without a character mapping (letters via
+	 * SDL3's scancode → keycode pipeline, function keys, arrow keys, etc.) this silently wiped the most-recent text-input
+	 * character between {@code SDL_EVENT_TEXT_INPUT} and the next character event.
 	 *
-	 * <p>Drives {@link DefaultSdl3Input#dispatchKeyDown} directly — the seam {@code handleSDLEvent} routes to after
-	 * decoding the SDL_Event. If anyone re-introduces an unconditional {@code lastCharacter = 0;} into this dispatch
-	 * (or the case body that wraps it), this test fails. */
+	 * <p>
+	 * Drives {@link DefaultSdl3Input#dispatchKeyDown} directly — the seam {@code handleSDLEvent} routes to after decoding the
+	 * SDL_Event. If anyone re-introduces an unconditional {@code lastCharacter = 0;} into this dispatch (or the case body that
+	 * wraps it), this test fails. */
 	@Test
 	public void dispatchKeyDown_arbitraryKeyDoesNotClearLastCharacter () {
 		DefaultSdl3Input in = DefaultSdl3Input.forTest();
@@ -174,7 +175,15 @@ public class DefaultSdl3InputLogicTest {
 	private static final class CountingTextInputListener implements TextInputListener {
 		int canceledCount;
 		int inputCount;
-		@Override public void canceled () { canceledCount++; }
-		@Override public void input (String text) { inputCount++; }
+
+		@Override
+		public void canceled () {
+			canceledCount++;
+		}
+
+		@Override
+		public void input (String text) {
+			inputCount++;
+		}
 	}
 }

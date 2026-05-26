@@ -43,7 +43,8 @@ public class Sdl3PreferencesTest {
 	@After
 	public void tearDown () {
 		File[] files = tmpDir.toFile().listFiles();
-		if (files != null) for (File f : files) f.delete();
+		if (files != null) for (File f : files)
+			f.delete();
 		tmpDir.toFile().delete();
 	}
 
@@ -73,9 +74,9 @@ public class Sdl3PreferencesTest {
 	}
 
 	/** The atomic-write invariant we care about: regardless of whether the move into a read-only target succeeds
-	 * (platform-dependent — succeeds on tmpfs as root, fails on most ext4-as-user setups), the prefs file is never
-	 * silently empty after a flush attempt. This test asserts that floor: the file is always readable as either
-	 * the original ("yes") or the new value ("no"), never wiped. */
+	 * (platform-dependent — succeeds on tmpfs as root, fails on most ext4-as-user setups), the prefs file is never silently empty
+	 * after a flush attempt. This test asserts that floor: the file is always readable as either the original ("yes") or the new
+	 * value ("no"), never wiped. */
 	@Test
 	public void flush_neverLeavesEmptyPrefsAfterFailedAtomicMove () throws Exception {
 		// Seed prefs with valid content
@@ -86,8 +87,7 @@ public class Sdl3PreferencesTest {
 		// Make the existing prefs file read-only so the atomic move into it fails.
 		File pf = new File(tmpDir.toFile(), "prefs.xml");
 		Assume.assumeTrue("filesystem must support setWritable", pf.setWritable(false));
-		Assume.assumeTrue("setWritable(false) must actually deny writes",
-			!pf.canWrite());
+		Assume.assumeTrue("setWritable(false) must actually deny writes", !pf.canWrite());
 		try {
 			Sdl3Preferences second = open("prefs.xml");
 			second.putString("survivor", "no");

@@ -471,11 +471,22 @@ public class Sdl3Window implements Disposable {
 
 	private void applyWindowState (WindowStateGate.Transition t) {
 		switch (t) {
-		case ICONIFIED_TRUE:  iconified = true;  if (windowListener != null) windowListener.iconified(true);  break;
-		case ICONIFIED_FALSE: iconified = false; if (windowListener != null) windowListener.iconified(false); break;
-		case MAXIMIZED_TRUE:  if (windowListener != null) windowListener.maximized(true);  break;
-		case MAXIMIZED_FALSE: if (windowListener != null) windowListener.maximized(false); break;
-		case NONE: break;
+		case ICONIFIED_TRUE:
+			iconified = true;
+			if (windowListener != null) windowListener.iconified(true);
+			break;
+		case ICONIFIED_FALSE:
+			iconified = false;
+			if (windowListener != null) windowListener.iconified(false);
+			break;
+		case MAXIMIZED_TRUE:
+			if (windowListener != null) windowListener.maximized(true);
+			break;
+		case MAXIMIZED_FALSE:
+			if (windowListener != null) windowListener.maximized(false);
+			break;
+		case NONE:
+			break;
 		}
 	}
 
@@ -548,9 +559,9 @@ public class Sdl3Window implements Disposable {
 		return true;
 	}
 
-	/** Request user attention for this window. SDL3 implements this via {@code SDL_FLASH_UNTIL_FOCUSED}, which keeps flashing
-	 * the window/taskbar until the user focuses it. This differs from the LWJGL3 backend's {@code glfwRequestWindowAttention},
-	 * which is a one-shot bounce — the visible effect is platform/window-manager-specific in both cases. */
+	/** Request user attention for this window. SDL3 implements this via {@code SDL_FLASH_UNTIL_FOCUSED}, which keeps flashing the
+	 * window/taskbar until the user focuses it. This differs from the LWJGL3 backend's {@code glfwRequestWindowAttention}, which
+	 * is a one-shot bounce — the visible effect is platform/window-manager-specific in both cases. */
 	public void flash () {
 		SDL_FlashWindow(windowHandle, SDL_FLASH_UNTIL_FOCUSED);
 	}
@@ -578,9 +589,8 @@ public class Sdl3Window implements Disposable {
 		listener.resume();
 	}
 
-	/** Idempotent pause/resume dispatcher. Multiple pause requests fire the listener once; same for resume.
-	 * Deduplicates FOCUS_LOST+MINIMIZED pairs that arrive together on Windows. Not thread-safe — call only
-	 * from the SDL event-pump thread. */
+	/** Idempotent pause/resume dispatcher. Multiple pause requests fire the listener once; same for resume. Deduplicates
+	 * FOCUS_LOST+MINIMIZED pairs that arrive together on Windows. Not thread-safe — call only from the SDL event-pump thread. */
 	static final class PauseGate {
 		private boolean paused;
 		private final Runnable onPause, onResume;
@@ -609,19 +619,43 @@ public class Sdl3Window implements Disposable {
 		}
 	}
 
-	/** Tracks minimized/maximized window state so the single SDL3 RESTORED event fires the correct listener callback.
-	 * Extracted (like {@link PauseGate}) to be unit-testable without a live SDL window. Limitation: a compositor that
-	 * restores a minimized-while-maximized window to NORMAL (not maximized) leaves {@code maximized} stale; rare. */
+	/** Tracks minimized/maximized window state so the single SDL3 RESTORED event fires the correct listener callback. Extracted
+	 * (like {@link PauseGate}) to be unit-testable without a live SDL window. Limitation: a compositor that restores a
+	 * minimized-while-maximized window to NORMAL (not maximized) leaves {@code maximized} stale; rare. */
 	static final class WindowStateGate {
-		enum Transition { NONE, ICONIFIED_TRUE, ICONIFIED_FALSE, MAXIMIZED_TRUE, MAXIMIZED_FALSE }
+		enum Transition {
+			NONE, ICONIFIED_TRUE, ICONIFIED_FALSE, MAXIMIZED_TRUE, MAXIMIZED_FALSE
+		}
+
 		private boolean iconified, maximized;
-		boolean isIconified () { return iconified; }
-		boolean isMaximized () { return maximized; }
-		Transition onMinimized () { iconified = true; return Transition.ICONIFIED_TRUE; }
-		Transition onMaximized () { maximized = true; return Transition.MAXIMIZED_TRUE; }
+
+		boolean isIconified () {
+			return iconified;
+		}
+
+		boolean isMaximized () {
+			return maximized;
+		}
+
+		Transition onMinimized () {
+			iconified = true;
+			return Transition.ICONIFIED_TRUE;
+		}
+
+		Transition onMaximized () {
+			maximized = true;
+			return Transition.MAXIMIZED_TRUE;
+		}
+
 		Transition onRestored () {
-			if (iconified) { iconified = false; return Transition.ICONIFIED_FALSE; }
-			if (maximized) { maximized = false; return Transition.MAXIMIZED_FALSE; }
+			if (iconified) {
+				iconified = false;
+				return Transition.ICONIFIED_FALSE;
+			}
+			if (maximized) {
+				maximized = false;
+				return Transition.MAXIMIZED_FALSE;
+			}
 			return Transition.NONE;
 		}
 	}

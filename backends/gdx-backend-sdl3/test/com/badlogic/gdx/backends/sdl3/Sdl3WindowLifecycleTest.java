@@ -28,10 +28,7 @@ public class Sdl3WindowLifecycleTest {
 		// not twice.
 		int[] pauseCount = {0};
 		int[] resumeCount = {0};
-		Sdl3Window.PauseGate gate = new Sdl3Window.PauseGate(
-			() -> pauseCount[0]++,
-			() -> resumeCount[0]++
-		);
+		Sdl3Window.PauseGate gate = new Sdl3Window.PauseGate( () -> pauseCount[0]++, () -> resumeCount[0]++);
 		gate.requestPause(); // FOCUS_LOST
 		gate.requestPause(); // MINIMIZED
 		assertEquals(1, pauseCount[0]);

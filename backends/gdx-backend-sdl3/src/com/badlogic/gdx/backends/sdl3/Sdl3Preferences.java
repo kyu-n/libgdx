@@ -171,8 +171,7 @@ public class Sdl3Preferences implements Preferences {
 	@Override
 	public void flush () {
 		FileHandle tmp = file.sibling(file.name() + ".tmp");
-		try (FileOutputStream fos = new FileOutputStream(tmp.file());
-			BufferedOutputStream out = new BufferedOutputStream(fos)) {
+		try (FileOutputStream fos = new FileOutputStream(tmp.file()); BufferedOutputStream out = new BufferedOutputStream(fos)) {
 			properties.storeToXML(out, null);
 			out.flush();
 			// Force data + file-metadata to disk before the rename. Without sync(), ext4 with the default
@@ -184,15 +183,13 @@ public class Sdl3Preferences implements Preferences {
 			throw new GdxRuntimeException("Error writing preferences: " + file, ex);
 		}
 		try {
-			Files.move(tmp.file().toPath(), file.file().toPath(),
-				StandardCopyOption.ATOMIC_MOVE,
+			Files.move(tmp.file().toPath(), file.file().toPath(), StandardCopyOption.ATOMIC_MOVE,
 				StandardCopyOption.REPLACE_EXISTING);
 		} catch (IOException atomicFailure) {
 			// Fall back to non-atomic replace if the filesystem doesn't support ATOMIC_MOVE
 			// (e.g. some network filesystems).
 			try {
-				Files.move(tmp.file().toPath(), file.file().toPath(),
-					StandardCopyOption.REPLACE_EXISTING);
+				Files.move(tmp.file().toPath(), file.file().toPath(), StandardCopyOption.REPLACE_EXISTING);
 			} catch (IOException e2) {
 				e2.addSuppressed(atomicFailure);
 				throw new GdxRuntimeException("Error writing preferences: " + file, e2);

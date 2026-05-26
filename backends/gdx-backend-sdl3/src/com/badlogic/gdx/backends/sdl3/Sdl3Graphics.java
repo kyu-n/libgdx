@@ -418,17 +418,15 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 		int count = modes.remaining();
 		for (int i = 0; i < count; i++) {
 			SDL_DisplayMode candidate = SDL_DisplayMode.create(modes.get(i));
-			if (candidate.w() == newMode.width
-				&& candidate.h() == newMode.height
+			if (candidate.w() == newMode.width && candidate.h() == newMode.height
 				&& Math.abs(candidate.refresh_rate() - newMode.refreshRate) < 0.5f) {
 				matched = candidate;
 				break;
 			}
 		}
 		if (matched == null) {
-			System.err.println("Sdl3Graphics: setFullscreenMode: no SDL_DisplayMode matched "
-				+ newMode.width + "x" + newMode.height + "@" + newMode.refreshRate
-				+ "Hz on display " + newMode.monitorHandle);
+			System.err.println("Sdl3Graphics: setFullscreenMode: no SDL_DisplayMode matched " + newMode.width + "x" + newMode.height
+				+ "@" + newMode.refreshRate + "Hz on display " + newMode.monitorHandle);
 			return false;
 		}
 		try (MemoryStack stack = MemoryStack.stackPush()) {

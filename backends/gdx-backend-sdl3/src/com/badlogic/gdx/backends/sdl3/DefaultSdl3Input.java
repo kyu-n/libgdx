@@ -206,8 +206,8 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 	final boolean[] mouseButtonPressed = new boolean[5];
 	char lastCharacter;
 
-	/** Current IME pre-edit (composition) state, polled by the app each frame. Mutated only on the event-loop thread, so
-	 * unlocked fields are safe. */
+	/** Current IME pre-edit (composition) state, polled by the app each frame. Mutated only on the event-loop thread, so unlocked
+	 * fields are safe. */
 	private String compositionText = "";
 	private int compositionCursorStart, compositionCursorLength, compositionVersion;
 
@@ -216,14 +216,13 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		windowHandleChanged(window.getWindowHandle());
 	}
 
-	/** Test-only constructor; production callers use {@link #DefaultSdl3Input(Sdl3Window)}. Skips the SDL window
-	 * binding so unit tests can exercise {@link #handleKey} and other pure-logic methods without a running SDL3 context. */
+	/** Test-only constructor; production callers use {@link #DefaultSdl3Input(Sdl3Window)}. Skips the SDL window binding so unit
+	 * tests can exercise {@link #handleKey} and other pure-logic methods without a running SDL3 context. */
 	DefaultSdl3Input () {
 	}
 
-	/** Factory for the test-only constructor. Returned instance has a null {@code window} field; calling
-	 * {@link #handleSDLEvent} on it will NPE — that's intentional. Use this only to exercise pure-logic helpers like
-	 * {@link #handleKey}. */
+	/** Factory for the test-only constructor. Returned instance has a null {@code window} field; calling {@link #handleSDLEvent}
+	 * on it will NPE — that's intentional. Use this only to exercise pure-logic helpers like {@link #handleKey}. */
 	static DefaultSdl3Input forTest () {
 		return new DefaultSdl3Input();
 	}
@@ -252,7 +251,8 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 			break;
 		}
 		case SDL_EVENT_TEXT_EDITING: {
-			// In-progress IME composition (pre-edit), stored for the app to render inline; only committed text (TEXT_INPUT) reaches keyTyped.
+			// In-progress IME composition (pre-edit), stored for the app to render inline; only committed text (TEXT_INPUT) reaches
+			// keyTyped.
 			SDL_TextEditingEvent te = event.edit();
 			String s = te.textString();
 			setComposition(s == null ? "" : s, te.start(), te.length());
@@ -346,13 +346,14 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		}
 	}
 
-	/** The full KEY_DOWN dispatch path: state bookkeeping (via {@link #handleKey}) + eventQueue.keyDown +
-	 * requestRendering + character mapping + (conditional) lastCharacter assignment + keyTyped. Extracted from
-	 * {@link #handleSDLEvent}'s {@code SDL_EVENT_KEY_DOWN} case as a test seam so the lastCharacter regression vector
-	 * (an unconditional {@code lastCharacter = 0;} re-introduced anywhere in this dispatch) is unit-testable without
-	 * synthesizing a real {@code SDL_Event}.
+	/** The full KEY_DOWN dispatch path: state bookkeeping (via {@link #handleKey}) + eventQueue.keyDown + requestRendering +
+	 * character mapping + (conditional) lastCharacter assignment + keyTyped. Extracted from {@link #handleSDLEvent}'s
+	 * {@code SDL_EVENT_KEY_DOWN} case as a test seam so the lastCharacter regression vector (an unconditional
+	 * {@code lastCharacter = 0;} re-introduced anywhere in this dispatch) is unit-testable without synthesizing a real
+	 * {@code SDL_Event}.
 	 *
-	 * <p>{@code window} may be null when called from {@link #forTest()}; the requestRendering call no-ops in that case. */
+	 * <p>
+	 * {@code window} may be null when called from {@link #forTest()}; the requestRendering call no-ops in that case. */
 	void dispatchKeyDown (int gdxKeyCode, long time) {
 		handleKey(gdxKeyCode, true);
 		eventQueue.keyDown(gdxKeyCode, time);
@@ -364,8 +365,8 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		}
 	}
 
-	/** Per-character state update for text input. Skips AppKit private-use function-key codepoints. Does NOT dispatch
-	 * to the event queue — callers in {@link #handleSDLEvent} do that separately. */
+	/** Per-character state update for text input. Skips AppKit private-use function-key codepoints. Does NOT dispatch to the event
+	 * queue — callers in {@link #handleSDLEvent} do that separately. */
 	void handleTextInput (char c) {
 		// Defensive filter — the dispatch loop in handleSDLEvent also filters these, so this guard only fires if a
 		// caller (e.g. unit test) bypasses that loop. Cheap enough to keep for self-consistency.
@@ -373,8 +374,8 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		lastCharacter = c;
 	}
 
-	/** Update the IME composition state and bump {@link #compositionVersion}. Package-private so unit tests can drive it
-	 * directly. {@code null} text normalizes to {@code ""}. */
+	/** Update the IME composition state and bump {@link #compositionVersion}. Package-private so unit tests can drive it directly.
+	 * {@code null} text normalizes to {@code ""}. */
 	void setComposition (String text, int cursorStart, int cursorLen) {
 		this.compositionText = text == null ? "" : text;
 		this.compositionCursorStart = Math.max(0, cursorStart);
@@ -382,8 +383,8 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		this.compositionVersion++;
 	}
 
-	/** Clear an active pre-edit (e.g. on commit). No-op (and no version bump) when there is no composition, so plain typing
-	 * does not churn {@link #getCompositionVersion()}. */
+	/** Clear an active pre-edit (e.g. on commit). No-op (and no version bump) when there is no composition, so plain typing does
+	 * not churn {@link #getCompositionVersion()}. */
 	void clearCompositionIfActive () {
 		if (!compositionText.isEmpty()) setComposition("", 0, 0);
 	}

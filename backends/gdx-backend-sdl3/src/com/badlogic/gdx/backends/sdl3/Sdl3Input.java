@@ -14,8 +14,8 @@ public interface Sdl3Input extends Input, Disposable {
 
 	void resetPollingStates ();
 
-	/** The current IME pre-edit (composition) text, or {@code ""} when there is no active composition. Polled each frame to
-	 * render inline; committed text arrives separately via {@code keyTyped}. */
+	/** The current IME pre-edit (composition) text, or {@code ""} when there is no active composition. Polled each frame to render
+	 * inline; committed text arrives separately via {@code keyTyped}. */
 	String getCompositionText ();
 
 	/** Caret offset (in UTF-16 chars) within {@link #getCompositionText()}. SDL's -1 (not set) is normalized to 0. */

@@ -563,8 +563,8 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		return applicationLogger;
 	}
 
-	/** Set the polling rate during idle (non-rendering) time. Mutates the live config. Must be positive.
-	 * Parity with {@link Sdl3Graphics#setForegroundFPS(int)}, which has been live-mutable since the backend was added. */
+	/** Set the polling rate during idle (non-rendering) time. Mutates the live config. Must be positive. Parity with
+	 * {@link Sdl3Graphics#setForegroundFPS(int)}, which has been live-mutable since the backend was added. */
 	public void setIdleFPS (int fps) {
 		if (fps <= 0) throw new IllegalArgumentException("idleFPS must be positive, got " + fps);
 		config.idleFPS = fps;
@@ -842,9 +842,8 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		return new long[] {windowHandle, glContext};
 	}
 
-	/** Attempt context creation with a ladder of (major, minor, profile) triples, returning the first successful
-	 * context handle, or 0 if all attempts fail. Preserves the shared-context attribute across retries when
-	 * {@code sharedContextWindow != 0}. */
+	/** Attempt context creation with a ladder of (major, minor, profile) triples, returning the first successful context handle,
+	 * or 0 if all attempts fail. Preserves the shared-context attribute across retries when {@code sharedContextWindow != 0}. */
 	private static long createGLContextWithFallback (long windowHandle, Sdl3ApplicationConfiguration config,
 		long sharedContextWindow) {
 		int[][] ladder = chooseLadder(config);
@@ -860,8 +859,8 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 				// so per-rung spam is misleading when the next rung succeeds and the eventual user-visible result
 				// is just "GL context created on the fallback rung".
 				if (failures == null) failures = new StringBuilder();
-				failures.append("  GL ").append(attempt[0]).append('.').append(attempt[1]).append(": ")
-					.append(SDL_GetError()).append('\n');
+				failures.append("  GL ").append(attempt[0]).append('.').append(attempt[1]).append(": ").append(SDL_GetError())
+					.append('\n');
 			}
 			System.err.println("Sdl3Application: all GL ladder attempts failed:\n" + failures);
 			return 0;

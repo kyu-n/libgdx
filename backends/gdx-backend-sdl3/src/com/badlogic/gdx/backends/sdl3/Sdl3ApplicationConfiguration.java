@@ -219,7 +219,8 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 	/** Configure an OpenGL Core profile at the requested major/minor with the forward-compatible flag. Applied immediately via
 	 * {@code SDL_GL_SetAttribute}. Call before window creation.
 	 *
-	 * <p>SDL3-only escape hatch — no LWJGL3 counterpart. */
+	 * <p>
+	 * SDL3-only escape hatch — no LWJGL3 counterpart. */
 	public static void useOpenGL3 (int major, int minor) {
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, major);
@@ -288,9 +289,9 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 		}
 	}
 
-	/** Returns the (attribute, value) pairs that {@link #applyBackBufferAttributes} hands to {@code SDL_GL_SetAttribute},
-	 * exposed as a pure-data seam so unit tests can verify the field-to-enum wiring without a live SDL context. Order is
-	 * not load-bearing — the SDL call is idempotent per attribute. */
+	/** Returns the (attribute, value) pairs that {@link #applyBackBufferAttributes} hands to {@code SDL_GL_SetAttribute}, exposed
+	 * as a pure-data seam so unit tests can verify the field-to-enum wiring without a live SDL context. Order is not load-bearing
+	 * — the SDL call is idempotent per attribute. */
 	static int[][] backBufferAttributePairs (Sdl3ApplicationConfiguration config) {
 		boolean ms = config.samples > 0;
 		return new int[][] { //
@@ -475,7 +476,8 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 	/** Sets an int-valued GL attribute to apply via {@code SDL_GL_SetAttribute} just before window creation. Use for experimental
 	 * attributes not covered by the typed setters; {@code attr} must be a {@code SDL_GL_*} constant.
 	 *
-	 * <p>SDL3-only escape hatch — no LWJGL3 counterpart. */
+	 * <p>
+	 * SDL3-only escape hatch — no LWJGL3 counterpart. */
 	public void setWindowHint (int attr, int value) {
 		sdlManualWindowHintAttrs.add(new int[] {attr, value});
 	}
@@ -483,7 +485,8 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 	/** Sets a string SDL hint to apply via {@code SDL_SetHint} before {@code SDL_Init}/window creation. Use for experimental hints
 	 * such as {@code SDL_HINT_VIDEO_DRIVER} or {@code SDL_HINT_APP_ID}.
 	 *
-	 * <p>SDL3-only escape hatch — no LWJGL3 counterpart. */
+	 * <p>
+	 * SDL3-only escape hatch — no LWJGL3 counterpart. */
 	public void setWindowHintStrings (String hintName, String value) {
 		sdlManualHints.put(hintName, value);
 	}
@@ -492,7 +495,8 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 	 * {@code .desktop} matching, macOS dock identity, Windows taskbar grouping, and SDL3 logging context. The {@code identifier}
 	 * should be reverse-DNS (e.g. {@code "com.pokeemu.client"}). All three fields may be {@code null} to skip the call.
 	 *
-	 * <p>SDL3-only escape hatch — no LWJGL3 counterpart. */
+	 * <p>
+	 * SDL3-only escape hatch — no LWJGL3 counterpart. */
 	public void setAppMetadata (String name, String version, String identifier) {
 		this.appName = name;
 		this.appVersion = version;
@@ -503,7 +507,8 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 	 * explicitly. Mirrors Mindustry/Arc's field-tested Wayland fallback for compositors where SDL3's default driver pick
 	 * misbehaves. Off by default.
 	 *
-	 * <p>SDL3-only escape hatch — no LWJGL3 counterpart. */
+	 * <p>
+	 * SDL3-only escape hatch — no LWJGL3 counterpart. */
 	public void setPreferX11OnLinux (boolean prefer) {
 		this.preferX11OnLinux = prefer;
 	}
