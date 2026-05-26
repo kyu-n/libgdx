@@ -377,8 +377,8 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 	 * directly. {@code null} text normalizes to {@code ""}. */
 	void setComposition (String text, int cursorStart, int cursorLen) {
 		this.compositionText = text == null ? "" : text;
-		this.compositionCursorStart = cursorStart;
-		this.compositionCursorLength = cursorLen;
+		this.compositionCursorStart = Math.max(0, cursorStart);
+		this.compositionCursorLength = Math.max(0, cursorLen);
 		this.compositionVersion++;
 	}
 

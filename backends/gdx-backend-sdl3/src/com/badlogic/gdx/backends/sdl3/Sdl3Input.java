@@ -18,10 +18,11 @@ public interface Sdl3Input extends Input, Disposable {
 	 * render inline; committed text arrives separately via {@code keyTyped}. */
 	String getCompositionText ();
 
-	/** Caret offset (in UTF-16 chars) within {@link #getCompositionText()}. */
+	/** Caret offset (in UTF-16 chars) within {@link #getCompositionText()}. SDL's -1 (not set) is normalized to 0. */
 	int getCompositionCursorStart ();
 
-	/** Length (in UTF-16 chars) of the active clause within {@link #getCompositionText()}; {@code 0} when nothing is highlighted. */
+	/** Length (in UTF-16 chars) of the active clause within {@link #getCompositionText()}; {@code 0} when nothing is highlighted.
+	 * SDL's -1 (not set) is normalized to 0. */
 	int getCompositionCursorLength ();
 
 	/** Monotonic counter bumped on every composition change (including clears), so the app can detect new pre-edit state with an

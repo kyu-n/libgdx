@@ -146,6 +146,14 @@ public class DefaultSdl3InputLogicTest {
 	}
 
 	@Test
+	public void setComposition_negativeOffsets_normalizeToZero () {
+		DefaultSdl3Input in = DefaultSdl3Input.forTest();
+		in.setComposition("ni", -1, -1);
+		assertEquals(0, in.getCompositionCursorStart());
+		assertEquals(0, in.getCompositionCursorLength());
+	}
+
+	@Test
 	public void clearCompositionIfActive_doesNotBumpVersionWhenEmpty () {
 		DefaultSdl3Input in = DefaultSdl3Input.forTest();
 		int v0 = in.getCompositionVersion();
