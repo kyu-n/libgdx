@@ -711,6 +711,8 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		setOnscreenKeyboardVisible(visible, OnscreenKeyboardType.Default);
 	}
 
+	// Desktop has no soft keyboard or native text field: `type` is intentionally ignored (no SDL_StartTextInputWithProperties
+	// yet — input-type hints are a tracked follow-up), and openTextInputField/closeTextInputField are intentional no-ops.
 	@Override
 	public void setOnscreenKeyboardVisible (boolean visible, OnscreenKeyboardType type) {
 		// SDL3 gates text-input event delivery on a per-window flag. Toggling it controls SDL_EVENT_TEXT_INPUT generation as well
@@ -730,12 +732,12 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 
 	@Override
 	public void openTextInputField (NativeInputConfiguration configuration) {
-
+		// No-op on desktop: there is no native overlay text field (mobile-only API).
 	}
 
 	@Override
 	public void closeTextInputField (boolean sendReturn) {
-
+		// No-op on desktop: there is no native overlay text field (mobile-only API).
 	}
 
 	@Override
