@@ -81,6 +81,7 @@ public class Sdl3Window implements Disposable {
 	private boolean requestRendering = false;
 	private boolean shouldClose = false;
 	private final PauseGate pauseGate = new PauseGate(this::firePause, this::fireResume);
+	private final WindowStateGate windowState = new WindowStateGate();
 
 	/** Buffer of file paths accumulated between {@code SDL_EVENT_DROP_BEGIN} and {@code SDL_EVENT_DROP_COMPLETE}. SDL3 emits one
 	 * event per file inside a BEGIN/COMPLETE bracket; we batch into this list and flush on COMPLETE so
@@ -436,27 +437,17 @@ public class Sdl3Window implements Disposable {
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_MINIMIZED: {
-			if (windowListener != null) windowListener.iconified(true);
-			iconified = true;
+			applyWindowState(windowState.onMinimized());
 			if (config.pauseWhenMinimized) pauseGate.requestPause();
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_RESTORED: {
-			// SDL3 emits RESTORED on exit from either minimized OR maximized state. Dispatch from the tracked previous state
-			// so consumers see maximized(false), not only iconified(false).
-			if (windowListener != null) {
-				if (iconified) {
-					windowListener.iconified(false);
-				} else {
-					windowListener.maximized(false);
-				}
-			}
-			iconified = false;
+			applyWindowState(windowState.onRestored());
 			if (config.pauseWhenMinimized) pauseGate.requestResume();
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_MAXIMIZED: {
-			if (windowListener != null) windowListener.maximized(true);
+			applyWindowState(windowState.onMaximized());
 			break;
 		}
 		case org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_EXPOSED: {
@@ -475,6 +466,16 @@ public class Sdl3Window implements Disposable {
 		}
 		default:
 			break;
+		}
+	}
+
+	private void applyWindowState (WindowStateGate.Transition t) {
+		switch (t) {
+		case ICONIFIED_TRUE:  iconified = true;  if (windowListener != null) windowListener.iconified(true);  break;
+		case ICONIFIED_FALSE: iconified = false; if (windowListener != null) windowListener.iconified(false); break;
+		case MAXIMIZED_TRUE:  if (windowListener != null) windowListener.maximized(true);  break;
+		case MAXIMIZED_FALSE: if (windowListener != null) windowListener.maximized(false); break;
+		case NONE: break;
 		}
 	}
 
@@ -605,6 +606,23 @@ public class Sdl3Window implements Disposable {
 
 		boolean isPaused () {
 			return paused;
+		}
+	}
+
+	/** Tracks minimized/maximized window state so the single SDL3 RESTORED event fires the correct listener callback.
+	 * Extracted (like {@link PauseGate}) to be unit-testable without a live SDL window. Limitation: a compositor that
+	 * restores a minimized-while-maximized window to NORMAL (not maximized) leaves {@code maximized} stale; rare. */
+	static final class WindowStateGate {
+		enum Transition { NONE, ICONIFIED_TRUE, ICONIFIED_FALSE, MAXIMIZED_TRUE, MAXIMIZED_FALSE }
+		private boolean iconified, maximized;
+		boolean isIconified () { return iconified; }
+		boolean isMaximized () { return maximized; }
+		Transition onMinimized () { iconified = true; return Transition.ICONIFIED_TRUE; }
+		Transition onMaximized () { maximized = true; return Transition.MAXIMIZED_TRUE; }
+		Transition onRestored () {
+			if (iconified) { iconified = false; return Transition.ICONIFIED_FALSE; }
+			if (maximized) { maximized = false; return Transition.MAXIMIZED_FALSE; }
+			return Transition.NONE;
 		}
 	}
 }
