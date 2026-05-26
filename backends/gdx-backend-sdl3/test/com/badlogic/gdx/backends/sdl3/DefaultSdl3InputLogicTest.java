@@ -145,6 +145,24 @@ public class DefaultSdl3InputLogicTest {
 		assertEquals(0, in.getCompositionCursorLength());
 	}
 
+	@Test
+	public void clearCompositionIfActive_doesNotBumpVersionWhenEmpty () {
+		DefaultSdl3Input in = DefaultSdl3Input.forTest();
+		int v0 = in.getCompositionVersion();
+		in.clearCompositionIfActive();
+		assertEquals("clearing with no composition must not bump version", v0, in.getCompositionVersion());
+	}
+
+	@Test
+	public void clearCompositionIfActive_clearsAndBumpsWhenActive () {
+		DefaultSdl3Input in = DefaultSdl3Input.forTest();
+		in.setComposition("ni", 1, 1);
+		int v1 = in.getCompositionVersion();
+		in.clearCompositionIfActive();
+		assertEquals("", in.getCompositionText());
+		assertEquals(v1 + 1, in.getCompositionVersion());
+	}
+
 	private static final class CountingTextInputListener implements TextInputListener {
 		int canceledCount;
 		int inputCount;

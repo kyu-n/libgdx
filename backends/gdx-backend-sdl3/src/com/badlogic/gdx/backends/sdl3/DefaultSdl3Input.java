@@ -261,7 +261,7 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		}
 		case SDL_EVENT_TEXT_INPUT: {
 			// Commit ends the composition — clear the pre-edit so it can't leak into committed text.
-			setComposition("", 0, 0);
+			clearCompositionIfActive();
 			String text = event.text().textString();
 			if (text == null || text.isEmpty()) break;
 			long time = System.nanoTime();
@@ -380,6 +380,12 @@ public class DefaultSdl3Input extends AbstractInput implements Sdl3Input {
 		this.compositionCursorStart = cursorStart;
 		this.compositionCursorLength = cursorLen;
 		this.compositionVersion++;
+	}
+
+	/** Clear an active pre-edit (e.g. on commit). No-op (and no version bump) when there is no composition, so plain typing
+	 * does not churn {@link #getCompositionVersion()}. */
+	void clearCompositionIfActive () {
+		if (!compositionText.isEmpty()) setComposition("", 0, 0);
 	}
 
 	@Override
