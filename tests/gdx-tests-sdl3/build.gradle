@@ -57,6 +57,16 @@ configure (launchTestsSdl3) {
 	group "LibGDX"
 	description = "Run the Sdl3 tests"
 }
+tasks.register('launchAngleDemo', JavaExec) {
+	dependsOn classes
+	mainClass = "com.badlogic.gdx.tests.sdl3.AngleGles20DemoStarter"
+	classpath = sourceSets.main.runtimeClasspath
+	standardInput = System.in
+	workingDir = new File("../gdx-tests-android/assets")
+	ignoreExitValue = true
+	group "LibGDX"
+	description = "Run the SDL3 ANGLE/GLES2 backend proof demo"
+}
 tasks.register('dist', Jar) {
 	dependsOn classes
 	manifest {

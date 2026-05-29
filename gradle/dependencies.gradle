@@ -182,6 +182,18 @@ libraries.lwjgl3GLES = [
         "org.lwjgl:lwjgl-egl:${versions.lwjgl3}",
 ]
 
+libraries.lwjgl3sdlGLES = [
+        "org.lwjgl:lwjgl-opengles:${versions.lwjgl3sdl}",
+        "org.lwjgl:lwjgl-opengles:${versions.lwjgl3sdl}:natives-linux",
+        "org.lwjgl:lwjgl-opengles:${versions.lwjgl3sdl}:natives-linux-arm32",
+        "org.lwjgl:lwjgl-opengles:${versions.lwjgl3sdl}:natives-linux-arm64",
+        "org.lwjgl:lwjgl-opengles:${versions.lwjgl3sdl}:natives-macos",
+        "org.lwjgl:lwjgl-opengles:${versions.lwjgl3sdl}:natives-macos-arm64",
+        "org.lwjgl:lwjgl-opengles:${versions.lwjgl3sdl}:natives-windows",
+        "org.lwjgl:lwjgl-opengles:${versions.lwjgl3sdl}:natives-windows-x86",
+        "org.lwjgl:lwjgl-egl:${versions.lwjgl3sdl}",
+]
+
 libraries.robovm = [
         "com.mobidevelop.robovm:robovm-rt:${versions.robovm}",
         "com.mobidevelop.robovm:robovm-objc:${versions.robovm}",

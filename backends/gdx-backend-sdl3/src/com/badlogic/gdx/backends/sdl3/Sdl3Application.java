@@ -33,6 +33,8 @@ import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_FIRST;
 import static org.lwjgl.sdl.SDLEvents.SDL_EVENT_WINDOW_LAST;
 import static org.lwjgl.sdl.SDLEvents.SDL_PollEvent;
 import static org.lwjgl.sdl.SDLHints.SDL_HINT_VIDEO_DRIVER;
+import static org.lwjgl.sdl.SDLHints.SDL_HINT_OPENGL_ES_DRIVER;
+import static org.lwjgl.sdl.SDLHints.SDL_HINT_VIDEO_FORCE_EGL;
 import static org.lwjgl.sdl.SDLInit.SDL_INIT_EVENTS;
 import static org.lwjgl.sdl.SDLInit.SDL_INIT_GAMEPAD;
 import static org.lwjgl.sdl.SDLInit.SDL_INIT_VIDEO;
@@ -48,6 +50,8 @@ import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_MAJOR_VERSION;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_MINOR_VERSION;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_COMPATIBILITY;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_CORE;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_ES;
+import static org.lwjgl.sdl.SDLVideo.SDL_GL_GetProcAddress;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CONTEXT_PROFILE_MASK;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_CreateContext;
 import static org.lwjgl.sdl.SDLVideo.SDL_GL_MakeCurrent;
@@ -87,9 +91,12 @@ import org.lwjgl.opengl.GL43;
 import org.lwjgl.opengl.GLCapabilities;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.opengl.KHRDebug;
+import org.lwjgl.opengles.GLES;
+import org.lwjgl.opengles.GLES20;
 import org.lwjgl.sdl.SDL_DisplayMode;
 import org.lwjgl.sdl.SDL_Event;
 import org.lwjgl.system.Callback;
+import org.lwjgl.system.FunctionProvider;
 import org.lwjgl.system.MemoryStack;
 
 import com.badlogic.gdx.Application;
@@ -109,6 +116,11 @@ import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.ObjectMap;
 
 public class Sdl3Application implements Sdl3ApplicationBase {
+	static {
+		// Bind GLES via SDL's loader below instead of letting LWJGL auto-create it ("already been created").
+		org.lwjgl.system.Configuration.OPENGLES_EXPLICIT_INIT.set(true);
+	}
+
 	private final Sdl3ApplicationConfiguration config;
 	final Array<Sdl3Window> windows = new Array<Sdl3Window>();
 	private volatile Sdl3Window currentWindow;
@@ -187,6 +199,11 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		if (config.preferX11OnLinux && System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("linux")
 			&& !config.sdlManualHints.containsKey(SDL_HINT_VIDEO_DRIVER)) {
 			config.sdlManualHints.put(SDL_HINT_VIDEO_DRIVER, "x11,wayland");
+		}
+		// ANGLE path: select SDL's GLES driver + EGL before SDL_Init (putIfAbsent lets a consumer override).
+		if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20) {
+			config.sdlManualHints.putIfAbsent(SDL_HINT_OPENGL_ES_DRIVER, "1");
+			config.sdlManualHints.putIfAbsent(SDL_HINT_VIDEO_FORCE_EGL, "1");
 		}
 		// Apply string hints BEFORE SDL_Init so video driver / app_id hints take effect.
 		config.applyManualStringHints();
@@ -811,14 +828,21 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 				System.err.println("Sdl3Application: SDL_GL_SetSwapInterval failed: " + SDL_GetError());
 			}
 
-			GL.createCapabilities();
+			boolean gles = config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20;
+			if (gles) {
+				// SDL owns the GLES library, so resolve entry points through SDL_GL_GetProcAddress.
+				GLES.create(SDL_GLES_FUNCTION_PROVIDER);
+				GLES.createCapabilities();
+			} else {
+				GL.createCapabilities();
+			}
 
-			initiateGL();
+			initiateGL(gles);
 			if (!glVersion.isVersionEqualToOrHigher(2, 0))
 				throw new GdxRuntimeException("OpenGL 2.0 or higher with the FBO extension is required. OpenGL version: "
 					+ glVersion.getVersionString() + "\n" + glVersion.getDebugVersionString());
 
-			if (!supportsFBO()) {
+			if (!supportsFBO(gles)) {
 				throw new GdxRuntimeException("OpenGL 2.0 or higher with the FBO extension is required. OpenGL version: "
 					+ glVersion.getVersionString() + ", FBO extension: false\n" + glVersion.getDebugVersionString());
 			}
@@ -871,6 +895,9 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 
 	private static int[][] chooseLadder (Sdl3ApplicationConfiguration config) {
 		// Trailing triples are progressively more permissive. Each row is {major, minor, profileMask}.
+		if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20) {
+			return new int[][] {{2, 0, SDL_GL_CONTEXT_PROFILE_ES}};
+		}
 		if (config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL30
 			|| config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL31
 			|| config.glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL32) {
@@ -900,15 +927,29 @@ public class Sdl3Application implements Sdl3ApplicationBase {
 		config.executeWindowHintOverrides();
 	}
 
-	private static void initiateGL () {
-		String versionString = GL11.glGetString(GL11.GL_VERSION);
-		String vendorString = GL11.glGetString(GL11.GL_VENDOR);
-		String rendererString = GL11.glGetString(GL11.GL_RENDERER);
+	/** Resolves GLES entry points through SDL's loader (SDL owns the libGLESv2/libEGL handle). */
+	private static final FunctionProvider SDL_GLES_FUNCTION_PROVIDER = new FunctionProvider() {
+		@Override
+		public long getFunctionAddress (java.nio.ByteBuffer functionName) {
+			return SDL_GL_GetProcAddress(functionName);
+		}
+
+		@Override
+		public long getFunctionAddress (CharSequence functionName) {
+			return SDL_GL_GetProcAddress(functionName);
+		}
+	};
+
+	private static void initiateGL (boolean gles) {
+		String versionString = gles ? GLES20.glGetString(GLES20.GL_VERSION) : GL11.glGetString(GL11.GL_VERSION);
+		String vendorString = gles ? GLES20.glGetString(GLES20.GL_VENDOR) : GL11.glGetString(GL11.GL_VENDOR);
+		String rendererString = gles ? GLES20.glGetString(GLES20.GL_RENDERER) : GL11.glGetString(GL11.GL_RENDERER);
 		glVersion = new GLVersion(Application.ApplicationType.Desktop, versionString, vendorString, rendererString);
 	}
 
-	private static boolean supportsFBO () {
-		// FBO is in core since OpenGL 3.0, see https://www.opengl.org/wiki/Framebuffer_Object
+	private static boolean supportsFBO (boolean gles) {
+		// FBO is core in GL ES 2.0 and desktop GL 3.0+.
+		if (gles) return true;
 		if (glVersion.isVersionEqualToOrHigher(3, 0)) return true;
 		return org.lwjgl.sdl.SDLVideo.SDL_GL_ExtensionSupported("GL_EXT_framebuffer_object")
 			|| org.lwjgl.sdl.SDLVideo.SDL_GL_ExtensionSupported("GL_ARB_framebuffer_object");

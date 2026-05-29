@@ -82,10 +82,9 @@ public class Sdl3ApplicationConfiguration extends Sdl3WindowConfiguration {
 	int audioDeviceBufferCount = 9;
 
 	public enum GLEmulation {
-		GL20, GL30, GL31, GL32
-		// ANGLE_GLES20 removed in cleanup: SDL3-side adapter classes
-		// (Sdl3GLES20, ANGLELoader) were never written. Tracked as
-		// follow-up to re-add ANGLE in a separate plan.
+		GL20, GL30, GL31, GL32,
+		/** OpenGL ES 2.0 over EGL (ANGLE: GLES-over-Direct3D11 on Windows, platform GLES driver elsewhere). */
+		ANGLE_GLES20
 	}
 
 	GLEmulation glEmulation = GLEmulation.GL20;

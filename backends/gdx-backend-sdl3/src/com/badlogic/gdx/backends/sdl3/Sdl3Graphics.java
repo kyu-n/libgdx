@@ -92,6 +92,9 @@ public class Sdl3Graphics extends AbstractGraphics implements Disposable {
 			this.gl20 = this.gl30 = this.gl31 = new Sdl3GL31();
 		} else if (window.getConfig().glEmulation == Sdl3ApplicationConfiguration.GLEmulation.GL30) {
 			this.gl20 = this.gl30 = new Sdl3GL30();
+		} else if (window.getConfig().glEmulation == Sdl3ApplicationConfiguration.GLEmulation.ANGLE_GLES20) {
+			this.gl20 = new Sdl3GLES20();
+			this.gl30 = null;
 		} else {
 			this.gl20 = new Sdl3GL20();
 			this.gl30 = null;
